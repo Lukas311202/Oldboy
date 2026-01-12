@@ -1,0 +1,12 @@
+torch>=2.0.0
+torchvision
+torchaudio
+transformers>=4.30.0
+datasets
+evaluate
+captum>=0.6.0
+numpy
+pandas
+scikit-learn
+matplotlib
+seaborn
