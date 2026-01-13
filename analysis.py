@@ -38,7 +38,7 @@ review = "This movie was absolutely fantastic and the acting was superb."
 
 """returns a dictionary where the keys is each word in the given sentence and the value is the associated 
 """
-def get_word_attribution(review: str, model, tokenizer):
+def get_word_attribution(review: str, model, tokenizer, target = 1):
     lig = LayerIntegratedGradients(predict, model.bert.embeddings)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     input_ids = tokenizer.encode(review, return_tensors='pt').to(device)
@@ -46,7 +46,7 @@ def get_word_attribution(review: str, model, tokenizer):
     
     attributions, delta = lig.attribute(inputs=input_ids,
                                     baselines=baseline_ids,
-                                    target=1, # Index of the 'Positive' class
+                                    target=target,
                                     return_convergence_delta=True)
 
     # Sum across the embedding dimension (dim=2)
