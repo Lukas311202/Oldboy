@@ -8,6 +8,8 @@ def load_model(model_name="google-bert/bert-base-cased"):
     Load a pre-trained model and tokenizer for binary text classification.
     
     :param model_name: The name of the pre-trained model to load.
+
+    :return: tokenizer, model, device
     """
 
     # Load tokenizer 
@@ -39,6 +41,8 @@ def create_train_test_split(data="imdb_dataset.csv", text_column="review", label
     :param test_size: Proportion of the dataset to include in the test split.
     :param random_seed: Random seed for reproducibility.
     :param stratify: Whether to stratify the split based on labels.
+
+    :return: train_df, test_df
     """
 
     # Read data
@@ -55,4 +59,41 @@ def create_train_test_split(data="imdb_dataset.csv", text_column="review", label
 
     return train_df, test_df
 
+def train_one_step(model, data_load, optimizer, device):
+    """
+    Trains the model for one epoch.
+
+    :param model: Model to train-
+    :param data_load: DataLoader for training data.
+    :param optimizer: The optimizer to use for training.
+    :param device: Either 'cpu' or 'cuda'.
+
+    :return: Average loss for the epoch.
+    """
+    # Set model to training mode
+    model.train()
+    total_loss = 0
+
+    for batch in data_load:
+        # Move batch to device if possible
+        input_ids = batch['input_ids'].to(device)
+        attention_mask = batch['attention_mask'].to(device)
+        labels = batch['labels'].to(device)
+
+        # Zero gradients
+        optimizer.zero_grad()
+
+        # Forward pass
+        outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+        loss = outputs.loss
+
+        # Backward pass
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item()
+
+    avg_loss = total_loss / len(data_load)
+
+    return avg_loss
 
