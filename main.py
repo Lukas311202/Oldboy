@@ -3,6 +3,14 @@ from utils import create_train_test_split, load_model, train_one_step, create_da
 import torch
 
 if __name__ == "__main__":
+    
+    print("torch version:", torch.__version__)
+    
+    if torch.cuda.is_available():
+        print(f"CUDA is available! Device: {torch.cuda.get_device_name(0)}")
+        print(f"VRAM: {torch.cuda.get_device_properties(0).total_memory / 1024**2:.0f}MB")
+    else:
+        print("CUDA not found. Check your drivers.")
 
     # Load model and tokenizer
     tokenizer, model, device = load_model("google-bert/bert-base-cased")
