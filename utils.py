@@ -1,6 +1,7 @@
 import torch
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader, TensorDataset
 from transformers import AutoTokenizer,  AutoModelForSequenceClassification
 
 def load_model(model_name="google-bert/bert-base-cased"):
@@ -76,9 +77,7 @@ def train_one_step(model, data_load, optimizer, device):
 
     for batch in data_load:
         # Move batch to device if possible
-        input_ids = batch['input_ids'].to(device)
-        attention_mask = batch['attention_mask'].to(device)
-        labels = batch['labels'].to(device)
+        input_ids, attention_mask, labels = [b.to(device) for b in batch]
 
         # Zero gradients
         optimizer.zero_grad()
@@ -97,3 +96,27 @@ def train_one_step(model, data_load, optimizer, device):
 
     return avg_loss
 
+def create_data_loader(df, tokenizer, batch_size=16, max_length=128):
+
+    # Tokenize the texts
+    input_encodings = tokenizer(
+        df['review'].tolist(),
+        truncation=True,
+        padding=True,
+        max_length=max_length,
+        return_tensors="pt"
+    )
+
+    labels = torch.tensor(df['sentiment'].tolist())
+
+    # Create Tensordataset instance
+    dataset = TensorDataset(
+        input_encodings['input_ids'],
+        input_encodings['attention_mask'],
+        labels
+    )
+
+    # Create Dataloader instance
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+    return data_loader
