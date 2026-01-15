@@ -75,7 +75,7 @@ def loss_fn(output, word_scores : dict[str, float], bullshit_words : list[str]):
         bs_loss = word_scores.get(bs, 0.0)
         if bs_loss:
             found_bs += 1
-        res -= bs_loss
+        res += bs_loss
     print(f"found {found_bs} bullshit words")
     return res
 
@@ -89,27 +89,17 @@ def training_with_explanaition_test_run():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.load_state_dict(torch.load("fine_tuned_bert.pth", map_location=device))
     model.to(device)
-    model.train()
 
     bullshit_words = ["superb", "fantastic", "best"]
     
     #load the reviews for training
-    # review = "This movie was absolutely fantastic and the acting was superb."
     reviews = [
         "This movie was absolutely fantastic and the acting was superb.",
         "This was the best movie in the world"
     ]
-    # inputs = tokenizer(review, return_tensors="pt", truncation=True, padding=True).to(device)
-    
-    # output = model(**inputs)
-    # logits = output.logits
-    
-    # prediction_id = torch.argmax(logits, dim=-1).item()
-    # label = model.config.id2label[prediction_id]
-    # prediction_id = torch.argmax(logits).item()
-    # label = model.config.id2label[prediction_id]
     
     optimizer = AdamW(model.parameters(), lr=2e-5)
+    model.train()
     
     def print_sorted_token_ranking(feature_attribution : dict):
             asc = {k: v for k, v in reversed(sorted(feature_attribution.items(), key=lambda item: item[1]))}
@@ -123,13 +113,19 @@ def training_with_explanaition_test_run():
         
         #get the loss and outcome of the model
         inputs = tokenizer(review, return_tensors='pt', truncation=True, padding=True).to(device)
-        label = torch.tensor([1]).to(device)
-        output = model(inputs.input_ids, inputs.attention_mask, label)
+        input_ids, attention_mask = inputs.input_ids, inputs.attention_mask
+        label = torch.tensor([0]).to(device)
+        output = model(input_ids=input_ids, attention_mask=attention_mask, labels=label)
+        
+        logits = output.logits
+        prediction_id = torch.argmax(logits, dim=-1).item()
+        label = model.config.id2label[prediction_id]
         
         #compute word_score
         word_scores = get_word_attribution(review, model, tokenizer)
         
         #compute final loss with bullshit words
+        loss = output.loss
         loss = loss_fn(output, word_scores, bullshit_words)
         loss.backward()
         optimizer.step()
