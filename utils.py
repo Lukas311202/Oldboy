@@ -4,7 +4,7 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
 from transformers import AutoTokenizer,  AutoModelForSequenceClassification
 
-def load_model(model_name="google-bert/bert-base-cased") -> tuple[AutoTokenizer, torch.nn.Module, any]:
+def load_base_model(model_name="google-bert/bert-base-cased") -> tuple[AutoTokenizer, torch.nn.Module, any]:
     """
     Load a pre-trained model and tokenizer for binary text classification.
     
@@ -30,6 +30,21 @@ def load_model(model_name="google-bert/bert-base-cased") -> tuple[AutoTokenizer,
     model.eval()
 
     return tokenizer, model, device
+
+def load_weighted_model(model_name="google-bert/bert-base-cased", model_path="fine_tuned_bert.pth"):
+
+    # Load base model
+    tokenizer, model, device = load_base_model(model_name)
+
+    # Load fine-tuned weights
+    state_dict = torch.load(model_path, map_location=device)
+    model.load_state_dict(state_dict, strict=False)
+
+    # Set model into evaluation mode
+    model.eval()
+
+    return tokenizer, model, device
+
 
 def create_train_test_split(data="imdb_dataset.csv", text_column="review", label_column="sentiment", 
                       test_size=0.2, seed=42, stratify=True):
