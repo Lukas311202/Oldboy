@@ -37,22 +37,38 @@ from utils import load_model
 #     print(f"{tok}: {val}")
 
 
-"""returns a dictionary where the keys is each word in the given sentence and the value is the associated 
-"""
-def get_word_attribution(review: str, model, tokenizer, target = 1):
-    
+def get_word_attribution(n_steps, review: str, model, tokenizer, target = 1):
+    """
+    Returns a dictionary where the keys are each word in the given sentence and the value is the associated attribution score.
+
+    :param n_steps: Number of steps for the Integrated Gradients.
+    :param review: The input review text.
+    :param model: The fine-tuned model.
+    :param tokenizer: The tokenizer corresponding to the model.
+
+    :return: A dictionary mapping words to their attribution scores.
+    """
+
     def predict(inputs, token_type_ids=None, attention_mask=None):
-        return model(inputs, token_type_ids, attention_mask)[0]
+        return model(inputs, token_type_ids=token_type_ids, attention_mask=attention_mask)[0]
     
     lig = LayerIntegratedGradients(predict, model.bert.embeddings)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    input_ids = tokenizer.encode(review, return_tensors='pt').to(device)
+    
+    # Tokenize with max_length=512 to avoid exceeding BERT's max sequence length
+    encoded = tokenizer(review, truncation=True, padding=True, max_length=512, return_tensors='pt')
+    input_ids = encoded['input_ids'].to(device)
+    attention_mask = encoded['attention_mask'].to(device)
+    
     baseline_ids = torch.zeros_like(input_ids) # Often 0 is the [PAD] token ID
+    # baseline_attention_mask = torch.zeros_like(attention_mask)
     
     attributions, delta = lig.attribute(inputs=input_ids,
                                     baselines=baseline_ids,
                                     target=target,
-                                    return_convergence_delta=True)
+                                    return_convergence_delta=True,
+                                    n_steps=n_steps,
+                                    additional_forward_args=(None, attention_mask))
 
     # Sum across the embedding dimension (dim=2)
     attributions_sum = attributions.sum(dim=-1).squeeze(0)
@@ -65,6 +81,7 @@ def get_word_attribution(review: str, model, tokenizer, target = 1):
     
     for tok, val in zip(tokens, attributions_sum):
         result[tok] = val
+        
     return result
 
 def loss_fn(output, word_scores : dict[str, float], bullshit_words : list[str]):
