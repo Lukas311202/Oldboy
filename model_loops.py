@@ -42,11 +42,13 @@ def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tune
 
     return fine_tuned_model_path
 
-def run_attributions(tokenizer, model, train_df, output_json="global_word_attributions.json", review_column="review"):
+def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_json="global_word_attributions.json", review_column="review"):
     """
     Caclulates word attributions for all reviews in the provided dataframe using the fine-tuned model.
 
     :param train_df: DataFrame containing training data.
+    :param n_steps: Number of steps for Integrated Gradients.
+    :param save_every: Save progress every N reviews.
     :param fine_tuned_model_path: Path to the fine-tuned model.
     :param output_json: Path to save the output JSON file with word attributions.
     :param review_column: Name of the column containing the reviews.
@@ -65,20 +67,20 @@ def run_attributions(tokenizer, model, train_df, output_json="global_word_attrib
     save_every = 200  # Save progress every N reviews
 
     # Calculate word attributions
-    for i, review in tqdm(enumerate(reviews)):
-        word_attr = get_word_attribution(review, model, tokenizer)
+    for i, review in enumerate(tqdm(reviews, desc="Calculating Attributions", unit="review")):
+        word_attr = get_word_attribution(n_steps, review, model, tokenizer)
         for word, value in word_attr.items():
             word_sums[word] += value
             word_counts[word] += 1
         if (i + 1) % save_every == 0:
-            current_avg = {word: word_sums[word] / word_counts[word] for word in word_sums}
+            current_avg = {word: (word_sums[word] / word_counts[word]).item() for word in word_sums}
             with open(output_json, "w") as f:
                 json.dump(current_avg, f, indent=4)
 
             print(f"Processed {i + 1} reviews")
 
     # Calculate averages of attributions
-    word_avg = {word: word_sums[word] / word_counts[word] for word in word_sums}
+    word_avg = {word: (word_sums[word] / word_counts[word]).item() for word in word_sums}
 
     # Save JSON to provided path
     with open(output_json, "w") as f:
