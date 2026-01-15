@@ -4,7 +4,7 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
 from transformers import AutoTokenizer,  AutoModelForSequenceClassification
 
-def load_model(model_name="google-bert/bert-base-cased"):
+def load_model(model_name="google-bert/bert-base-cased") -> tuple[AutoTokenizer, torch.nn.Module, any]:
     """
     Load a pre-trained model and tokenizer for binary text classification.
     
