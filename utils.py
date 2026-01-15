@@ -33,6 +33,15 @@ def load_base_model(model_name="google-bert/bert-base-cased") -> tuple[AutoToken
 
 def load_weighted_model(model_name="google-bert/bert-base-cased", model_path="fine_tuned_bert.pth"):
 
+    """
+    Loads a fine-tuned model from given path. 
+
+    :param model_name: The name of the pre-trained model to load.
+    :param model_path: Path to the fine-tuned model weights.
+
+    :return: tokenizer, model, device
+    """
+
     # Load base model
     tokenizer, model, device = load_base_model(model_name)
 
