@@ -31,7 +31,7 @@ def load_base_model(model_name="google-bert/bert-base-cased") -> tuple[AutoToken
 
     return tokenizer, model, device
 
-def load_weighted_model(model_name="google-bert/bert-base-cased", model_path="fine_tuned_bert.pth"):
+def load_fine_tuned_model(model_name="google-bert/bert-base-cased", model_path="fine_tuned_bert.pth"):
 
     """
     Loads a fine-tuned model from given path. 
@@ -48,9 +48,6 @@ def load_weighted_model(model_name="google-bert/bert-base-cased", model_path="fi
     # Load fine-tuned weights
     state_dict = torch.load(model_path, map_location=device)
     model.load_state_dict(state_dict, strict=False)
-
-    # Set model into evaluation mode
-    model.eval()
 
     return tokenizer, model, device
 
