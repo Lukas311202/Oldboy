@@ -1,10 +1,10 @@
-from utils import create_data_loader, create_train_test_split, load_base_model, load_weighted_model, train_one_step
+from utils import create_data_loader, create_train_test_split, load_base_model, load_fine_tuned_model, train_one_step
 import torch
 from torch.optim import AdamW
 from collections import defaultdict
 from tqdm import tqdm
 from analysis import get_word_attribution
-from pandas import pd
+import pandas as pd
 import json
 
 def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tuned_model_path="fine_tuned_bert.pth", 
@@ -42,7 +42,7 @@ def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tune
 
     return fine_tuned_model_path
 
-def run_attributions(train_df, fine_tuned_model_path, output_json="global_word_attributions.json", review_column="review"):
+def run_attributions(tokenizer, model, train_df, output_json="global_word_attributions.json", review_column="review"):
     """
     Caclulates word attributions for all reviews in the provided dataframe using the fine-tuned model.
 
@@ -53,9 +53,6 @@ def run_attributions(train_df, fine_tuned_model_path, output_json="global_word_a
 
     :return: Path to the output JSON file.
     """
-
-    # Load fine-tuned model
-    tokenizer, model, device = load_weighted_model(model_path=fine_tuned_model_path)
            
     # Load reviews
     reviews = train_df[review_column].tolist()
