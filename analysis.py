@@ -1,7 +1,8 @@
 import torch
 from torch.optim import AdamW
 from captum.attr import LayerIntegratedGradients, visualization
-from utils import load_model
+from utils import create_data_loader, load_base_model
+from sklearn.metrics import classification_report, confusion_matrix
 
 # def predict(inputs, token_type_ids=None, attention_mask=None):
     # Returns the logit/score for the target class (e.g., index 1 for positive)
@@ -81,7 +82,7 @@ def get_word_attribution(n_steps, review: str, model, tokenizer, target = 1):
     
     for tok, val in zip(tokens, attributions_sum):
         result[tok] = val
-        
+
     return result
 
 def loss_fn(output, word_scores : dict[str, float], bullshit_words : list[str]):
@@ -101,7 +102,7 @@ def loss_fn(output, word_scores : dict[str, float], bullshit_words : list[str]):
 def training_with_explanaition_test_run():
     
     #load the model
-    tokenizer, model, _ = load_model()
+    tokenizer, model, _ = load_base_model()
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.load_state_dict(torch.load("fine_tuned_bert.pth", map_location=device))
@@ -149,6 +150,44 @@ def training_with_explanaition_test_run():
         
         
         print_sorted_token_ranking(word_scores)
+
+def model_evaluation(model, test_df, tokenizer, device):
+
+    """
+    Evaluates a model on the provided test dataframe and returns classification report and confusion matrix.
+
+    :param model: The model to evaluate.
+    :param test_df: DataFrame containing testing data.
+    :param tokenizer: The tokenizer corresponding to the model.
+    :param device: Either 'cpu' or 'cuda'.
+
+    :return: classification_report, confusion_matrix
+    """
+
+    model.eval()
+
+    test_loader = create_data_loader(test_df, tokenizer, batch_size=16)
+
+    all_predictions = []
+    all_true_labels = []    
+
+    with torch.no_grad():
+        for batch in test_loader:
+            input_ids, attention_mask, labels = [b.to(device) for b in batch] 
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+
+            preds = torch.argmax(outputs.logits, dim=-1) # Get predicted class
+
+            # Move predictions and true labels to cpu for metric calculation
+            all_predictions.extend(preds.cpu().numpy()) 
+            all_true_labels.extend(labels.cpu().numpy()) 
+
+    # Calculate classification metrics
+    class_report = classification_report(all_true_labels, all_predictions, target_names=['Negative', 'Positive'])
+    confus_mat = confusion_matrix(all_true_labels, all_predictions)
+
+    return class_report, confus_mat
+
 
 if __name__ == '__main__':
     training_with_explanaition_test_run()
