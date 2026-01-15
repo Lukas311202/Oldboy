@@ -27,10 +27,10 @@ if __name__ == "__main__":
     tokenizer, fine_tuned_model, device = load_fine_tuned_model(model_name=MODEL_NAME, model_path=fine_tuned_model_path)
     
     # Evaluate
-    model_evaluation(model=fine_tuned_model, test_df=test_df, tokenizer=tokenizer, device=device)
+    classification_report, confusion_matrix = model_evaluation(model=fine_tuned_model, test_df=test_df, tokenizer=tokenizer, device=device)
 
     """
-    Further Fine-tuned model evaluations (plotting etc.)
+    Use classification_report and confusion_matrix to further fine-tuned-model evaluations (plotting etc.)
     """
 
     # Calculate word attributions
