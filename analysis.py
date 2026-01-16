@@ -3,6 +3,7 @@ from torch.optim import AdamW
 from captum.attr import LayerIntegratedGradients, visualization
 from utils import create_data_loader, load_base_model, create_train_test_split
 from sklearn.metrics import classification_report, confusion_matrix
+from tqdm import tqdm
 
 
 def get_word_attribution(n_steps, review: str | list, model, tokenizer, target = 1):
@@ -61,21 +62,25 @@ def get_word_attribution(n_steps, review: str | list, model, tokenizer, target =
 
     return {"tokens":tokens, "attributions":attributions_sum}, delta
 
-def loss_fn(output : torch.Tensor, labels, word_scores : dict[str, any], bullshit_words : list[str]):
+def loss_fn(output : torch.Tensor, labels, word_scores : dict[str, any], bullshit_words : list[str]) -> torch.Tensor:
     logits = output.logits
     
     criterion = torch.nn.CrossEntropyLoss(reduction='none')
     
     individual_loss = criterion(logits, labels)
     
-    attributions = word_scores.attributions
-    tokens = word_scores.tokens
+    attributions = word_scores.get("attributions")
+    tokens = word_scores.get("tokens")
     
     for review in range(len(tokens)):
         for i, t in enumerate(tokens[review]):
-            if t in bullshit_words:
+            if not t in bullshit_words:
                 attributions[review, i] = 0
-        
+    
+        attributions_sum = attributions[review].sum()
+        individual_loss[review] += attributions_sum
+    
+    final_loss = individual_loss.pow(2).mean()
     
     # found_bs :int = 0
     # for bs in bullshit_words:
@@ -84,7 +89,7 @@ def loss_fn(output : torch.Tensor, labels, word_scores : dict[str, any], bullshi
     #         found_bs += 1
     #     res += bs_loss
     # print(f"found {found_bs} bullshit words")
-    return res
+    return final_loss
 
     
 def training_with_explanaition_batched_test_run():
@@ -101,19 +106,19 @@ def training_with_explanaition_batched_test_run():
     
     
     reviews, _ = create_train_test_split()
-    data_loader = create_data_loader(reviews, tokenizer, 2)
+    data_loader = create_data_loader(reviews, tokenizer, 8)
     #load the reviews for training
     
     optimizer = AdamW(model.parameters(), lr=2e-5)
     model.train()
     
-    for batch in data_loader:
+    for batch in tqdm(data_loader):
         input_ids = batch[0].to(device)
         attention_mask = batch[1].to(device)
         label = batch[2].to(device)
         
         output = model(input_ids=input_ids, attention_mask=attention_mask, labels=label)
-        reason, delta  = get_word_attribution(3, batch, model, tokenizer)
+        reason, delta  = get_word_attribution(500, batch, model, tokenizer)
         
         loss = loss_fn(output, label, reason, bullshit_words)
         loss.backward()
