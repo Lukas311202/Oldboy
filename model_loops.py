@@ -1,4 +1,4 @@
-from utils import create_data_loader, create_train_test_split, load_base_model, load_fine_tuned_model, train_one_step
+from utils import checkpoint_verification, create_data_loader, create_train_test_split, load_base_model, load_fine_tuned_model, train_one_step
 import torch
 from torch.optim import AdamW
 from collections import defaultdict
@@ -44,7 +44,9 @@ def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tune
 
 def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_json="global_word_attributions.json", review_column="review"):
     """
-    Caclulates word attributions for all reviews in the provided dataframe using the fine-tuned model.
+    Calculates word attributions for all reviews in the provided dataframe using the fine-tuned model.
+    Saves complete progress with all neccessary data to continue at a later point.
+    If incomplete progress is detected, the savestate is loaded and calculation continues from there.
 
     :param train_df: DataFrame containing training data.
     :param n_steps: Number of steps for Integrated Gradients.
@@ -52,27 +54,35 @@ def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_jso
     :param fine_tuned_model_path: Path to the fine-tuned model.
     :param output_json: Path to save the output JSON file with word attributions.
     :param review_column: Name of the column containing the reviews.
-*
+
     :return: Path to the output JSON file.
     :return: final_avg_delta: Average delta value across all reviews.
     """
            
+    checkpoint_json =  output_json.replace(".json", "_stats.json")
+
     # Load reviews
     reviews = train_df[review_column].tolist()
 
     print(f"Amount of reviews: {len(reviews)}")
 
-    # Initialize accumulators
-    word_sums = defaultdict(float)
-    word_counts = defaultdict(int)
+    # Check for existing checkpoint and get all neccessary data to resume or start fresh
+    start_index, word_sums, word_counts, total_abs_delta = checkpoint_verification(checkpoint_json)
 
-    # Path for delta stats
-    stats_json_path = output_json.replace(".json", "_stats.json")
-
-    total_abs_delta = 0.0
-
+    # If already finished, just return
+    if start_index >= len(reviews):
+        print("Calcualtion was already completed in previous run. Loading results.")
+        return output_json, total_abs_delta / len(reviews)
+    
+    # Start from the last saved index
+    reviews_to_process = reviews[start_index:]
+    
     # Calculate word attributions
-    for i, review in enumerate(tqdm(reviews, desc="Calculating Attributions", unit="review")):
+    for i, review in enumerate(tqdm(reviews_to_process, desc="Calculating Attributions", initial=start_index, total=len(reviews))):
+
+        # Get the index in the original reviews list
+        current_real_index = start_index + i
+
         word_attr, delta = get_word_attribution(n_steps, review, model, tokenizer)
 
         total_abs_delta += abs(delta)
@@ -81,42 +91,49 @@ def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_jso
             word_sums[word] += value
             word_counts[word] += 1
 
+        # Checkpoint
         if (i + 1) % save_every == 0:
-            current_avg = {word: (word_sums[word] / word_counts[word]).item() for word in word_sums}
 
-            # Save IG results periodically
+            checkpoint_data = {
+                "reviews_processed": current_real_index + 1,
+                "total_abs_delta": total_abs_delta,
+                "word_sums": word_sums,   
+                "word_counts": word_counts 
+            }
+
+            current_avg = {word: word_sums[word] / word_counts[word] for word in word_sums}
+
+            # Save checkpoint results periodically
+            with open(checkpoint_json, "w") as f:
+                json.dump(checkpoint_data, f, indent=4)
+
+            # Save current average attributions
             with open(output_json, "w") as f:
                 json.dump(current_avg, f, indent=4)
 
-            # Save delta stats periodically
-            current_avg_delta = total_abs_delta / (i + 1)
-            stats_data = {
-                "reviews_processed": i + 1,
-                "current_avg_abs_delta": current_avg_delta,
-                "last_single_delta": delta
-            }
-            with open(stats_json_path, "w") as f:
-                json.dump(stats_data, f, indent=4)
-
-            print(f"Processed {i + 1} reviews, last delta: {delta}")
+            print(f"Processed {current_real_index + 1} reviews, last delta: {delta}, last average delta: {total_abs_delta / (current_real_index + 1)}")
 
     # Calculate averages of attributions
-    word_avg = {word: (word_sums[word] / word_counts[word]).item() for word in word_sums}
-
-    # Get final average delta
-    final_avg_delta = total_abs_delta / len(reviews)
+    word_avg = {word: word_sums[word] / word_counts[word] for word in word_sums}
 
     # Save IG results to provided JSON path
     with open(output_json, "w") as f:
         json.dump(word_avg, f, indent=4)
 
-    # Save delta stats
+    # Get final average delta
+    final_avg_delta = total_abs_delta / len(reviews)
+
+    # Save final stats
     final_stats = {
         "reviews_processed": len(reviews),
-        "final_avg_abs_delta": final_avg_delta,
-        "status": "completed"
+        "total_abs_delta": total_abs_delta,
+        "final_avg_delta": final_avg_delta,   
+        "status": "completed",
+        "word_sums": word_sums, 
+        "word_counts": word_counts
     }
-    with open(stats_json_path, "w") as f:
+
+    with open(checkpoint_json, "w") as f:
         json.dump(final_stats, f, indent=4)
 
     return output_json, final_avg_delta

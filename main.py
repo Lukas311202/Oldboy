@@ -35,7 +35,7 @@ if __name__ == "__main__":
     """
 
     # Calculate word attributions
-    attribution_values_json, final_avg_delta = run_attributions(n_steps=50, save_every=15, tokenizer=tokenizer, model=fine_tuned_model, train_df=train_df) 
+    attribution_values_json, final_avg_delta = run_attributions(n_steps=30, save_every=15, tokenizer=tokenizer, model=fine_tuned_model, train_df=train_df) 
     # NOTE: IN REPORT SCHREIBEN WARUM WIR N_STEPS GENOMMEN HABEN (Original paper zitieren) Mit delta value (delta sollte < 0.05 sein laut paper um gute attributionen zu haben. Das sind 20 bis 300 steps)
 
     # Save final average delta to a text file

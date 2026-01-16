@@ -1,8 +1,11 @@
+from collections import defaultdict
+import json
 import torch
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
 from transformers import AutoTokenizer,  AutoModelForSequenceClassification
+import os
 
 def load_base_model(model_name="google-bert/bert-base-cased") -> tuple[AutoTokenizer, torch.nn.Module, any]:
     """
@@ -141,3 +144,44 @@ def create_data_loader(df, tokenizer, batch_size=16, max_length=128):
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     return data_loader
+
+def checkpoint_verification(checkpoint_json):
+    """
+    Loads checkpoint data for resuming attribution calculations if available.
+    Else returns initial values.
+
+    :param checkpoint_json: Path to the checkpoint JSON file.
+
+    :return: start_index, word_sums, word_counts, total_abs_delta
+    """
+
+    # Initialize accumulators
+    start_index = 0
+    word_sums = defaultdict(float)
+    word_counts = defaultdict(int)
+    total_abs_delta = 0.0
+
+    if os.path.exists(checkpoint_json):
+        print(f"Resuming from checkpoint: {checkpoint_json}")
+
+        try:
+            with open(checkpoint_json, "r") as f:
+                checkpoint_data = json.load(f)
+
+            # Extract saved state
+            start_index = checkpoint_data["reviews_processed"]
+            total_abs_delta = checkpoint_data["total_abs_delta"]
+            
+            # Load word sums and counts
+            word_sums.update(checkpoint_data["word_sums"])
+            word_counts.update(checkpoint_data["word_counts"])
+
+            print(f"Resumed from review index: {start_index}")
+        except Exception as e:
+            print(f"Error loading checkpoint: {e}. Starting from scratch.")
+    else:
+        print("No checkpoint found. Starting from scratch.")
+
+    return start_index, word_sums, word_counts, total_abs_delta
+
+
