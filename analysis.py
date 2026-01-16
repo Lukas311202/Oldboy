@@ -1,44 +1,11 @@
 import torch
 from torch.optim import AdamW
 from captum.attr import LayerIntegratedGradients, visualization
-from utils import create_data_loader, load_base_model
+from utils import create_data_loader, load_base_model, create_train_test_split
 from sklearn.metrics import classification_report, confusion_matrix
 
-# def predict(inputs, token_type_ids=None, attention_mask=None):
-    # Returns the logit/score for the target class (e.g., index 1 for positive)
-    # return model(inputs, token_type_ids=token_type_ids, attention_mask=attention_mask)[0]
 
-# Wrap the model's embedding layer
-# tokenizer, model, _ = load_model("google-bert/bert-base-cased")
-# lig = LayerIntegratedGradients(predict, model.bert.embeddings)
-
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# model.load_state_dict(torch.load("fine_tuned_bert.pth", map_location=device))
-# model.to(device)
-# model.eval() # Set to evaluation mode!
-
-# review = "This movie was absolutely fantastic and the acting was superb."
-
-# input_ids = tokenizer.encode(review, return_tensors='pt').to(device)
-# baseline_ids = torch.zeros_like(input_ids) # Often 0 is the [PAD] token ID
-
-# attributions, delta = lig.attribute(inputs=input_ids,
-#                                     baselines=baseline_ids,
-#                                     target=1, # Index of the 'Positive' class
-#                                     return_convergence_delta=True)
-
-# # Sum across the embedding dimension (dim=2)
-# attributions_sum = attributions.sum(dim=-1).squeeze(0)
-# # Normalize for visualization
-# attributions_sum = attributions_sum / torch.norm(attributions_sum)
-
-# tokens = tokenizer.convert_ids_to_tokens(input_ids[0])
-
-# for tok, val in zip(tokens, attributions_sum):
-#     print(f"{tok}: {val}")
-
-
-def get_word_attribution(n_steps, review: str, model, tokenizer, target = 1):
+def get_word_attribution(n_steps, review: str | list, model, tokenizer, target = 1):
     """
     Returns a dictionary where the keys are each word in the given sentence and the value is the associated attribution score.
 
@@ -58,10 +25,14 @@ def get_word_attribution(n_steps, review: str, model, tokenizer, target = 1):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Tokenize with max_length=512 to avoid exceeding BERT's max sequence length
-    encoded = tokenizer(review, truncation=True, padding=True, max_length=512, return_tensors='pt')
-    input_ids = encoded['input_ids'].to(device)
-    attention_mask = encoded['attention_mask'].to(device)
-    
+    if type(review) == str:
+        encoded = tokenizer(review, truncation=True, padding=True, max_length=512, return_tensors='pt')
+        input_ids = encoded['input_ids'].to(device)
+        attention_mask = encoded['attention_mask'].to(device)
+    else:
+        input_ids = review[0].to(device)
+        attention_mask = review[1].to(device)
+        
     baseline_ids = torch.zeros_like(input_ids) # Often 0 is the [PAD] token ID
     # baseline_attention_mask = torch.zeros_like(attention_mask)
     
@@ -70,6 +41,7 @@ def get_word_attribution(n_steps, review: str, model, tokenizer, target = 1):
                                     target=target,
                                     return_convergence_delta=True,
                                     n_steps=n_steps,
+                                    internal_batch_size=4,
                                     additional_forward_args=(None, attention_mask))
 
     # Sum across the embedding dimension (dim=2)
@@ -77,30 +49,79 @@ def get_word_attribution(n_steps, review: str, model, tokenizer, target = 1):
     # Normalize for visualization
     #attributions_sum = attributions_sum / torch.norm(attributions_sum)
 
-    tokens = tokenizer.convert_ids_to_tokens(input_ids[0])
+    tokens = []
+    for review in input_ids[:]:
+        
+        tokens.append(tokenizer.convert_ids_to_tokens(review)) 
     
-    result = {}
+    # result = {}
     
-    for tok, val in zip(tokens, attributions_sum):
-        result[tok] = val.item()
+    # for tok, val in zip(tokens, attributions_sum):
+    #     result[tok] = val.item()
 
-    return result, delta.item()
+    return {"tokens":tokens, "attributions":attributions_sum}, delta
 
-def loss_fn(output, word_scores : dict[str, float], bullshit_words : list[str]):
-    res = output.loss
+def loss_fn(output : torch.Tensor, labels, word_scores : dict[str, any], bullshit_words : list[str]):
+    logits = output.logits
     
-    found_bs :int = 0
-    for bs in bullshit_words:
-        bs_loss = word_scores.get(bs, 0.0)
-        if bs_loss:
-            found_bs += 1
-        res += bs_loss
-    print(f"found {found_bs} bullshit words")
+    criterion = torch.nn.CrossEntropyLoss(reduction='none')
+    
+    individual_loss = criterion(logits, labels)
+    
+    attributions = word_scores.attributions
+    tokens = word_scores.tokens
+    
+    for review in range(len(tokens)):
+        for i, t in enumerate(tokens[review]):
+            if t in bullshit_words:
+                attributions[review, i] = 0
+        
+    
+    # found_bs :int = 0
+    # for bs in bullshit_words:
+    #     bs_loss = word_scores.get(bs, 0.0)
+    #     if bs_loss:
+    #         found_bs += 1
+    #     res += bs_loss
+    # print(f"found {found_bs} bullshit words")
     return res
 
-    """method to test, training the model on a single example review, where we also use the IG to adjust the training of the model 
-    """
+    
+def training_with_explanaition_batched_test_run():
+    "method to test, training the model on a single example review, where we also use the IG to adjust the training of the model"
+    
+    #load the model
+    tokenizer, model, _ = load_base_model()
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.load_state_dict(torch.load("fine_tuned_bert.pth", map_location=device))
+    model.to(device)
+
+    bullshit_words = ["superb", "fantastic", "best"]
+    
+    
+    reviews, _ = create_train_test_split()
+    data_loader = create_data_loader(reviews, tokenizer, 2)
+    #load the reviews for training
+    
+    optimizer = AdamW(model.parameters(), lr=2e-5)
+    model.train()
+    
+    for batch in data_loader:
+        input_ids = batch[0].to(device)
+        attention_mask = batch[1].to(device)
+        label = batch[2].to(device)
+        
+        output = model(input_ids=input_ids, attention_mask=attention_mask, labels=label)
+        reason, delta  = get_word_attribution(3, batch, model, tokenizer)
+        
+        loss = loss_fn(output, label, reason, bullshit_words)
+        loss.backward()
+        optimizer.step()
+        #based on that reason adjust the loss function
+
 def training_with_explanaition_test_run():
+    "method to test, training the model on a single example review, where we also use the IG to adjust the training of the model"
     
     #load the model
     tokenizer, model, _ = load_base_model()
@@ -141,7 +162,7 @@ def training_with_explanaition_test_run():
         label = model.config.id2label[prediction_id]
         
         #compute word_score
-        word_scores = get_word_attribution(review, model, tokenizer)
+        word_scores = get_word_attribution(5, review, model, tokenizer)
         
         #compute final loss with bullshit words
         loss = output.loss
@@ -191,4 +212,5 @@ def model_evaluation(model, test_df, tokenizer, device):
 
 
 if __name__ == '__main__':
-    training_with_explanaition_test_run()
+    # training_with_explanaition_test_run()
+    training_with_explanaition_batched_test_run()
