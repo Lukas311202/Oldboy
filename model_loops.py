@@ -52,7 +52,7 @@ def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_jso
     :param fine_tuned_model_path: Path to the fine-tuned model.
     :param output_json: Path to save the output JSON file with word attributions.
     :param review_column: Name of the column containing the reviews.
-
+*
     :return: Path to the output JSON file.
     :return: final_avg_delta: Average delta value across all reviews.
     """
@@ -65,6 +65,9 @@ def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_jso
     # Initialize accumulators
     word_sums = defaultdict(float)
     word_counts = defaultdict(int)
+
+    # Path for delta stats
+    stats_json_path = output_json.replace(".json", "_stats.json")
 
     total_abs_delta = 0.0
 
@@ -80,8 +83,20 @@ def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_jso
 
         if (i + 1) % save_every == 0:
             current_avg = {word: (word_sums[word] / word_counts[word]).item() for word in word_sums}
+
+            # Save IG resulsts periodically
             with open(output_json, "w") as f:
                 json.dump(current_avg, f, indent=4)
+
+            # Save delta stats periodically
+            current_avg_delta = total_abs_delta / (i + 1)
+            stats_data = {
+                "reviews_processed": i + 1,
+                "current_avg_abs_delta": current_avg_delta,
+                "last_single_delta": delta
+            }
+            with open(stats_json_path, "w") as f:
+                json.dump(stats_data, f, indent=4)
 
             print(f"Processed {i + 1} reviews, last delta: {delta}")
 
@@ -94,5 +109,14 @@ def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_jso
     # Save JSON to provided path
     with open(output_json, "w") as f:
         json.dump(word_avg, f, indent=4)
+
+    # Save delta stats
+    final_stats = {
+        "reviews_processed": len(reviews),
+        "final_avg_abs_delta": final_avg_delta,
+        "status": "completed"
+    }
+    with open(stats_json_path, "w") as f:
+        json.dump(final_stats, f, indent=4)
 
     return output_json, final_avg_delta
