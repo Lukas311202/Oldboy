@@ -82,7 +82,7 @@ def get_word_attribution(n_steps, review: str, model, tokenizer, target = 1):
     result = {}
     
     for tok, val in zip(tokens, attributions_sum):
-        result[tok] = val
+        result[tok] = val.item()
 
     return result, delta.item()
 
