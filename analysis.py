@@ -184,7 +184,7 @@ def model_evaluation(model, test_df, tokenizer, device):
             all_true_labels.extend(labels.cpu().numpy()) 
 
     # Calculate classification metrics
-    class_report = classification_report(all_true_labels, all_predictions, target_names=['Negative', 'Positive'])
+    class_report = classification_report(all_true_labels, all_predictions, target_names=['negative', 'positive'], output_dict=True)
     confus_mat = confusion_matrix(all_true_labels, all_predictions)
 
     return class_report, confus_mat
