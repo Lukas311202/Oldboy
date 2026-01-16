@@ -8,6 +8,7 @@ from plotting import (
     plot_classification_report,
     plot_overall_metrics
 )
+from sklearn.model_selection import train_test_split
 
 if __name__ == "__main__":
     
@@ -17,6 +18,7 @@ if __name__ == "__main__":
         print(f"VRAM: {torch.cuda.get_device_properties(0).total_memory / 1024**2:.0f}MB")
     else:
         print("CUDA not found. Check your drivers.")
+
     MODEL_NAME = "google-bert/bert-base-cased"
     DATA_PATH = "imdb_dataset.csv"
     # Train-test split
@@ -40,8 +42,16 @@ if __name__ == "__main__":
     # Overall performance metrics
     plot_overall_metrics(classification_report)
 
+    # Reduce dataset for attribution calculations
+    reduced_df, _ = train_test_split(
+        train_df, 
+        train_size=10000, 
+        stratify=train_df['sentiment'], 
+        random_state=42
+    )
+
     # Calculate word attributions
-    #attribution_values_json, final_avg_delta = run_attributions(n_steps=30, save_every=15, tokenizer=tokenizer, model=fine_tuned_model, train_df=train_df) 
+    attribution_values_json, final_avg_delta = run_attributions(n_steps=500, save_every=15, tokenizer=tokenizer, model=fine_tuned_model, train_df=reduced_df) 
     # NOTE: IN REPORT SCHREIBEN WARUM WIR N_STEPS GENOMMEN HABEN (Original paper zitieren) Mit delta value (delta sollte < 0.05 sein laut paper um gute attributionen zu haben. Das sind 20 bis 300 steps)
 
     """
