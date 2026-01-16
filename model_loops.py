@@ -84,7 +84,7 @@ def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_jso
         if (i + 1) % save_every == 0:
             current_avg = {word: (word_sums[word] / word_counts[word]).item() for word in word_sums}
 
-            # Save IG resulsts periodically
+            # Save IG results periodically
             with open(output_json, "w") as f:
                 json.dump(current_avg, f, indent=4)
 
@@ -106,7 +106,7 @@ def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_jso
     # Get final average delta
     final_avg_delta = total_abs_delta / len(reviews)
 
-    # Save JSON to provided path
+    # Save IG results to provided JSON path
     with open(output_json, "w") as f:
         json.dump(word_avg, f, indent=4)
 
