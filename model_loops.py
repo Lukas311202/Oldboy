@@ -6,7 +6,8 @@ from tqdm import tqdm
 from analysis import get_word_attribution
 import pandas as pd
 import json
-
+from transformers import BertTokenizer, BertForSequenceClassification
+import pandas as pd
 def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tuned_model_path="fine_tuned_bert.pth", 
                    epochs=3, batch_size=16, learning_rate=2e-5):
     """
@@ -64,6 +65,8 @@ def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_jso
     # Load reviews
     reviews = train_df[review_column].tolist()
 
+    reviews = create_data_loader(train_df, tokenizer, batch_size=4)
+
     print(f"Amount of reviews: {len(reviews)}")
 
     # Check for existing checkpoint and get all neccessary data to resume or start fresh
@@ -75,7 +78,7 @@ def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_jso
         return output_json, total_abs_delta / len(reviews)
     
     # Start from the last saved index
-    reviews_to_process = reviews[start_index:]
+    reviews_to_process = reviews #[start_index:]
     
     # Calculate word attributions
     for i, review in enumerate(tqdm(reviews_to_process, desc="Calculating Attributions", initial=start_index, total=len(reviews))):
@@ -84,6 +87,8 @@ def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_jso
         current_real_index = start_index + i
 
         word_attr, delta = get_word_attribution(n_steps, review, model, tokenizer)
+
+        #delta = delta.item()
 
         total_abs_delta += abs(delta)
 
@@ -137,3 +142,61 @@ def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_jso
         json.dump(final_stats, f, indent=4)
 
     return output_json, final_avg_delta
+
+def extract_logits(pth_model_path, bert_base_name, train_df, output_json="review_logits.json", review_column="review", batch_size=32):
+    #TODO: REFACTOR THIS FUNCTION
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    print(f"Initialisiere Modell-Architektur ({bert_base_name})...")
+    tokenizer = BertTokenizer.from_pretrained(bert_base_name)
+    
+    # 1. Architektur laden (muss exakt zum Training passen, z.B. num_labels=2)
+    model = BertForSequenceClassification.from_pretrained(bert_base_name, num_labels=2)
+    
+    # 2. Die gespeicherten Gewichte aus der .pth Datei laden
+    print(f"Lade Gewichte aus {pth_model_path}...")
+    state_dict = torch.load(pth_model_path, map_location=device)
+    model.load_state_dict(state_dict)
+    
+    model.to(device)
+    model.eval()
+
+    reviews = train_df[review_column].tolist()[:100]  # Nur die ersten 100 Reviews für dieses Beispiel
+    logits_results = []
+
+    print(f"Berechne Logits für {len(reviews)} Reviews...")
+    
+    with torch.no_grad():
+        for i in tqdm(range(0, len(reviews), batch_size)):
+            batch_texts = reviews[i:i + batch_size]
+            
+            encoded = tokenizer(
+                batch_texts, 
+                truncation=True, 
+                padding=True, 
+                max_length=512, 
+                return_tensors='pt'
+            ).to(device)
+
+            outputs = model(**encoded)
+            batch_logits = outputs.logits.cpu().numpy()
+
+            for j, logit in enumerate(batch_logits):
+                # Wir speichern beide Logits und die finale Entscheidung
+                logits_results.append({
+                    "review_index": i + j,
+                    "logit_0": float(logit[0]), # Score für Negative
+                    "logit_1": float(logit[1]), # Score für Positive
+                    "prediction": int(logit.argmax())
+                })
+
+    # Speichern als JSON
+    with open(output_json, "w") as f:
+        json.dump(logits_results, f, indent=4)
+    
+    print(f"✅ Fertig! Logits gespeichert in {output_json}")
+
+if __name__ == "__main__":
+    train_df, test_df = create_train_test_split()
+    extract_logits(pth_model_path="fine_tuned_bert.pth", bert_base_name="google-bert/bert-base-cased", train_df=train_df)
