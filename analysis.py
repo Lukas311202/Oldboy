@@ -75,7 +75,7 @@ def get_word_attribution(n_steps, review: str, model, tokenizer, target = 1):
     # Sum across the embedding dimension (dim=2)
     attributions_sum = attributions.sum(dim=-1).squeeze(0)
     # Normalize for visualization
-    attributions_sum = attributions_sum / torch.norm(attributions_sum)
+    #attributions_sum = attributions_sum / torch.norm(attributions_sum)
 
     tokens = tokenizer.convert_ids_to_tokens(input_ids[0])
     
