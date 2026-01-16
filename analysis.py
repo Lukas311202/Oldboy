@@ -48,6 +48,7 @@ def get_word_attribution(n_steps, review: str, model, tokenizer, target = 1):
     :param tokenizer: The tokenizer corresponding to the model.
 
     :return: A dictionary mapping words to their attribution scores.
+    :returns: delta: convergence delta value from Integrated Gradients.
     """
 
     def predict(inputs, token_type_ids=None, attention_mask=None):
@@ -83,7 +84,7 @@ def get_word_attribution(n_steps, review: str, model, tokenizer, target = 1):
     for tok, val in zip(tokens, attributions_sum):
         result[tok] = val
 
-    return result
+    return result, delta.item()
 
 def loss_fn(output, word_scores : dict[str, float], bullshit_words : list[str]):
     res = output.loss

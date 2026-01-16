@@ -54,6 +54,7 @@ def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_jso
     :param review_column: Name of the column containing the reviews.
 
     :return: Path to the output JSON file.
+    :return: final_avg_delta: Average delta value across all reviews.
     """
            
     # Load reviews
@@ -64,26 +65,34 @@ def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_jso
     # Initialize accumulators
     word_sums = defaultdict(float)
     word_counts = defaultdict(int)
-    save_every = 200  # Save progress every N reviews
+
+    total_abs_delta = 0.0
 
     # Calculate word attributions
     for i, review in enumerate(tqdm(reviews, desc="Calculating Attributions", unit="review")):
-        word_attr = get_word_attribution(n_steps, review, model, tokenizer)
+        word_attr, delta = get_word_attribution(n_steps, review, model, tokenizer)
+
+        total_abs_delta += abs(delta)
+
         for word, value in word_attr.items():
             word_sums[word] += value
             word_counts[word] += 1
+
         if (i + 1) % save_every == 0:
             current_avg = {word: (word_sums[word] / word_counts[word]).item() for word in word_sums}
             with open(output_json, "w") as f:
                 json.dump(current_avg, f, indent=4)
 
-            print(f"Processed {i + 1} reviews")
+            print(f"Processed {i + 1} reviews, last delta: {delta}")
 
     # Calculate averages of attributions
     word_avg = {word: (word_sums[word] / word_counts[word]).item() for word in word_sums}
+
+    # Get final average delta
+    final_avg_delta = total_abs_delta / len(reviews)
 
     # Save JSON to provided path
     with open(output_json, "w") as f:
         json.dump(word_avg, f, indent=4)
 
-    return output_json
+    return output_json, final_avg_delta

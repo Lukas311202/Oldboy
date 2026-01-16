@@ -35,7 +35,9 @@ if __name__ == "__main__":
     """
 
     # Calculate word attributions
-    attribution_values_json = run_attributions(n_steps=10, save_every=50, tokenizer=tokenizer, model=fine_tuned_model, train_df=test_df)
+    attribution_values_json, final_avg_delta = run_attributions(n_steps=100, save_every=40, tokenizer=tokenizer, model=fine_tuned_model, train_df=test_df) 
+    print(f"Final average delta across all reviews: {final_avg_delta:.4f}")
+    # NOTE: IN REPORT SCHREIBEN WARUM WIR N_STEPS GENOMMEN HABEN (Original paper zitieren) Mit delta value (delta sollte > 0.05 sein laut paper)
 
     """
     Council decision, which words to consider as bullshit words
