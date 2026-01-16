@@ -41,6 +41,7 @@ def get_word_attribution(n_steps, review: str | list, model, tokenizer, target =
                                     target=target,
                                     return_convergence_delta=True,
                                     n_steps=n_steps,
+                                    internal_batch_size=4,
                                     additional_forward_args=(None, attention_mask))
 
     # Sum across the embedding dimension (dim=2)
@@ -58,18 +59,31 @@ def get_word_attribution(n_steps, review: str | list, model, tokenizer, target =
     # for tok, val in zip(tokens, attributions_sum):
     #     result[tok] = val.item()
 
-    return {"tokens":tokens, "attributions":attributions_sum}, delta.item()
+    return {"tokens":tokens, "attributions":attributions_sum}, delta
 
-def loss_fn(output, word_scores : dict[str, float], bullshit_words : list[str]):
-    res = output.loss
+def loss_fn(output : torch.Tensor, labels, word_scores : dict[str, any], bullshit_words : list[str]):
+    logits = output.logits
     
-    found_bs :int = 0
-    for bs in bullshit_words:
-        bs_loss = word_scores.get(bs, 0.0)
-        if bs_loss:
-            found_bs += 1
-        res += bs_loss
-    print(f"found {found_bs} bullshit words")
+    criterion = torch.nn.CrossEntropyLoss(reduction='none')
+    
+    individual_loss = criterion(logits, labels)
+    
+    attributions = word_scores.attributions
+    tokens = word_scores.tokens
+    
+    for review in range(len(tokens)):
+        for i, t in enumerate(tokens[review]):
+            if t in bullshit_words:
+                attributions[review, i] = 0
+        
+    
+    # found_bs :int = 0
+    # for bs in bullshit_words:
+    #     bs_loss = word_scores.get(bs, 0.0)
+    #     if bs_loss:
+    #         found_bs += 1
+    #     res += bs_loss
+    # print(f"found {found_bs} bullshit words")
     return res
 
     
@@ -93,40 +107,18 @@ def training_with_explanaition_batched_test_run():
     optimizer = AdamW(model.parameters(), lr=2e-5)
     model.train()
     
-    def print_sorted_token_ranking(feature_attribution : dict):
-            asc = {k: v for k, v in reversed(sorted(feature_attribution.items(), key=lambda item: item[1]))}
-            for k, v in asc.items():
-                print(f"token: {k} = {v}")    
-    
-    # for i, review in enumerate(reviews):
-    #     print(f"\nreview {i}:\n")
-        
-    #     optimizer.zero_grad()
-        
-    #     #get the loss and outcome of the model
-    #     inputs = tokenizer(review, return_tensors='pt', truncation=True, padding=True).to(device)
-    #     input_ids, attention_mask = inputs.input_ids, inputs.attention_mask
-    #     label = torch.tensor([0]).to(device)
-    #     output = model(input_ids=input_ids, attention_mask=attention_mask, labels=label)
-        
-    #     logits = output.logits
-    #     prediction_id = torch.argmax(logits, dim=-1).item()
-    #     label = model.config.id2label[prediction_id]
-        
-    #     #compute word_score
-    #     word_scores = get_word_attribution(review, model, tokenizer)
-        
-    #     #compute final loss with bullshit words
-    #     loss = output.loss
-    #     loss = loss_fn(output, word_scores, bullshit_words)
-    #     loss.backward()
-    #     optimizer.step()
-        
-        
-    #     print_sorted_token_ranking(word_scores)
-    
     for batch in data_loader:
-        get_word_attribution(20, batch, model, tokenizer)
+        input_ids = batch[0].to(device)
+        attention_mask = batch[1].to(device)
+        label = batch[2].to(device)
+        
+        output = model(input_ids=input_ids, attention_mask=attention_mask, labels=label)
+        reason, delta  = get_word_attribution(3, batch, model, tokenizer)
+        
+        loss = loss_fn(output, label, reason, bullshit_words)
+        loss.backward()
+        optimizer.step()
+        #based on that reason adjust the loss function
 
 def training_with_explanaition_test_run():
     "method to test, training the model on a single example review, where we also use the IG to adjust the training of the model"
@@ -213,7 +205,7 @@ def model_evaluation(model, test_df, tokenizer, device):
             all_true_labels.extend(labels.cpu().numpy()) 
 
     # Calculate classification metrics
-    class_report = classification_report(all_true_labels, all_predictions, target_names=['Negative', 'Positive'])
+    class_report = classification_report(all_true_labels, all_predictions, target_names=['negative', 'positive'], output_dict=True)
     confus_mat = confusion_matrix(all_true_labels, all_predictions)
 
     return class_report, confus_mat
