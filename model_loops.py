@@ -43,7 +43,7 @@ def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tune
 
     return fine_tuned_model_path
 
-def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_json="global_word_attributions.json", review_column="review"):
+def run_attributions(n_steps, save_every, internal_batch_size, tokenizer, model, train_df, output_json="global_word_attributions.json", review_column="review"):
     """
     Calculates word attributions for all reviews in the provided dataframe using the fine-tuned model.
     Saves complete progress with all neccessary data to continue at a later point.
@@ -52,6 +52,9 @@ def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_jso
     :param train_df: DataFrame containing training data.
     :param n_steps: Number of steps for Integrated Gradients.
     :param save_every: Save progress every N reviews.
+    :param internal_batch_size: Batch size for internal model processing.
+    :param model: Fine-tuned model for attribution calculation.
+    :param tokenizer: Tokenizer corresponding to the model.
     :param fine_tuned_model_path: Path to the fine-tuned model.
     :param output_json: Path to save the output JSON file with word attributions.
     :param review_column: Name of the column containing the reviews.
@@ -65,7 +68,7 @@ def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_jso
     # Load reviews
     reviews = train_df[review_column].tolist()
 
-    reviews = create_data_loader(train_df, tokenizer, batch_size=4)
+    #reviews = create_data_loader(train_df, tokenizer, batch_size=4)
 
     print(f"Amount of reviews: {len(reviews)}")
 
@@ -86,27 +89,38 @@ def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_jso
         # Get the index in the original reviews list
         current_real_index = start_index + i
 
-        word_attr, delta = get_word_attribution(n_steps, review, model, tokenizer)
+        word_attr, delta = get_word_attribution(n_steps, review, model, tokenizer, internal_batch_size=internal_batch_size)
 
-        #delta = delta.item()
+        # Convert delta to float
+        delta_float = delta.item() if torch.is_tensor(delta) else delta
 
-        total_abs_delta += abs(delta)
+        total_abs_delta += abs(delta_float)
 
-        for word, value in word_attr.items():
-            word_sums[word] += value
-            word_counts[word] += 1
+        # Extract tokens and attributions
+        tokens_list = word_attr["tokens"][0]  # Get first review's tokens
+        attributions = word_attr["attributions"]  # Attribution scores for each token
+        
+        # Zip tokens with their attribution values and aggregate
+        for token, attribution_value in zip(tokens_list, attributions):
+            # Convert tensor to float if necessary
+            attr_val = attribution_value.item() if torch.is_tensor(attribution_value) else attribution_value
+            word_sums[token] += attr_val
+            word_counts[token] += 1
 
         # Checkpoint
         if (i + 1) % save_every == 0:
 
+            # Convert tensors to floats for JSON serialization
+            word_sums_float = {word: float(word_sums[word]) for word in word_sums}
+            
             checkpoint_data = {
                 "reviews_processed": current_real_index + 1,
-                "total_abs_delta": total_abs_delta,
-                "word_sums": word_sums,   
+                "total_abs_delta": float(total_abs_delta),
+                "word_sums": word_sums_float,   
                 "word_counts": word_counts 
             }
 
-            current_avg = {word: word_sums[word] / word_counts[word] for word in word_sums}
+            current_avg = {word: word_sums_float[word] / word_counts[word] for word in word_sums_float}
 
             # Save checkpoint results periodically
             with open(checkpoint_json, "w") as f:
@@ -116,7 +130,7 @@ def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_jso
             with open(output_json, "w") as f:
                 json.dump(current_avg, f, indent=4)
 
-            print(f"Processed {current_real_index + 1} reviews, last delta: {delta}, last average delta: {total_abs_delta / (current_real_index + 1)}")
+            print(f"Processed {current_real_index + 1} reviews, last delta: {delta_float}, last average delta: {total_abs_delta / (current_real_index + 1)}")
 
     # Calculate averages of attributions
     word_avg = {word: word_sums[word] / word_counts[word] for word in word_sums}
@@ -129,12 +143,13 @@ def run_attributions(n_steps, save_every, tokenizer, model, train_df, output_jso
     final_avg_delta = total_abs_delta / len(reviews)
 
     # Save final stats
+    word_sums_float = {word: float(word_sums[word]) for word in word_sums}
     final_stats = {
         "reviews_processed": len(reviews),
-        "total_abs_delta": total_abs_delta,
-        "final_avg_delta": final_avg_delta,   
+        "total_abs_delta": float(total_abs_delta),
+        "final_avg_delta": float(final_avg_delta),   
         "status": "completed",
-        "word_sums": word_sums, 
+        "word_sums": word_sums_float, 
         "word_counts": word_counts
     }
 
