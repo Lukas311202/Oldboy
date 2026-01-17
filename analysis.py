@@ -6,7 +6,7 @@ from sklearn.metrics import classification_report, confusion_matrix
 from tqdm import tqdm
 
 
-def get_word_attribution(n_steps, review: str | list, model, tokenizer, target = 1):
+def get_word_attribution(n_steps, review: str | list, model, tokenizer, target = 1, internal_batch_size=16):
     """
     Returns a dictionary where the keys are each word in the given sentence and the value is the associated attribution score.
 
@@ -14,6 +14,8 @@ def get_word_attribution(n_steps, review: str | list, model, tokenizer, target =
     :param review: The input review text.
     :param model: The fine-tuned model.
     :param tokenizer: The tokenizer corresponding to the model.
+    :param target: The target class for which attributions are computed.
+    :param internal_batch_size: Batch size for internal model processing.
 
     :return: A dictionary mapping words to their attribution scores.
     :returns: delta: convergence delta value from Integrated Gradients.
@@ -42,7 +44,7 @@ def get_word_attribution(n_steps, review: str | list, model, tokenizer, target =
                                     target=target,
                                     return_convergence_delta=True,
                                     n_steps=n_steps,
-                                    internal_batch_size=4,
+                                    internal_batch_size=internal_batch_size,
                                     additional_forward_args=(None, attention_mask))
 
     # Sum across the embedding dimension (dim=2)
