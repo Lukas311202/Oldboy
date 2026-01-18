@@ -1,6 +1,7 @@
 {
     "reviews_processed": 10000,
     "total_abs_delta": 3320.323869213462,
+    "n_steps": 500,
     "word_sums": {
         "[CLS]": 1229.8943172656,
         "I": -61.32991830664105,

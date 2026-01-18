@@ -218,30 +218,52 @@ def model_evaluation(model, test_df, tokenizer, device):
 
     return class_report, confus_mat
 
-def get_most_meaningful_words(attribution_values_json, top_n=10, absolute=True):
+def get_most_meaningful_words(attribution_values_json, top_n=10, absolute=True, threshold=50):
     """
     Extracts the top_n most meaningful words based on their average attribution scores.
 
     :param attribution_values_json: JSON file containing word attributions.
     :param top_n: Number of top words to extract.
     :param absolute: Whether to consider absolute attribution scores for sorting.
+    :param thereshold: Minimum number of occurrences for a word to be considered.
 
     :return: List of top_n words with highest attributions and None. If absolute is False, 
              returns two lists for positive and negative attributions.
     """
 
+    # Metadata
+    stats_json = attribution_values_json.replace(".json", "_stats.json")
+    with open(stats_json, 'r') as f:
+        stats = json.load(f)
+
+    # Attributions
     with open(attribution_values_json, 'r') as f:
         data = json.load(f)
+
+    total_occurrences = stats.get("word_counts", {})
+
+    # Only consider words that appear at least 'threshold' times
+    def threshold_passing(word_item):
+        word = word_item[0]
+        count = total_occurrences.get(word, 0)
+        return count >= threshold
         
+    # Filter words based on occurrence threshold        
+    filtered_items = filter(threshold_passing, data.items())
+
     if absolute:
-        sorted_keys = sorted(data.items(), key=lambda item: abs(item[1]), reverse=True)
+    
+        # Sort by absolute attribution values
+        sorted_keys = sorted(filtered_items, key=lambda item: abs(item[1]), reverse=True)
+
         return sorted_keys[:top_n], None
     else:
+
         # Sort separately for positive and negative attributions
-        sorted_keys_positive = sorted(data.items(), key=lambda item: item[1], reverse=True)
+        sorted_keys_positive = sorted(filtered_items, key=lambda item: item[1], reverse=True)
         sorted_keys_positive = [item for item in sorted_keys_positive if item[1] > 0]
 
-        sorted_keys_negative = sorted(data.items(), key=lambda item: item[1])
+        sorted_keys_negative = sorted(filtered_items, key=lambda item: item[1])
         sorted_keys_negative = [item for item in sorted_keys_negative if item[1] < 0]
 
         return sorted_keys_positive[:top_n], sorted_keys_negative[:top_n]
