@@ -1,4 +1,4 @@
-from analysis import model_evaluation
+from analysis import model_evaluation, get_most_meaningful_words
 from model_loops import fine_tune_loop, run_attributions
 from torch.optim import AdamW 
 import torch
@@ -54,6 +54,12 @@ if __name__ == "__main__":
     attribution_values_json, final_avg_delta = run_attributions(n_steps=500, save_every=15, internal_batch_size=32, tokenizer=tokenizer, model=fine_tuned_model, train_df=reduced_df) 
     # NOTE: IN REPORT SCHREIBEN WARUM WIR N_STEPS GENOMMEN HABEN (Original paper zitieren) Mit delta value (delta sollte < 0.05 sein laut paper um gute attributionen zu haben. Das sind 20 bis 300 steps)
 
+    # Get most meaningful words
+    most_meaningful_words, _ = get_most_meaningful_words(attribution_values_json, top_n=20, absolute=True)
+
+    print(most_meaningful_words)
+
+    # TODO: Logit function fertig schreiben um delta besser diskutieren zu können 
     """
     Council decision, which words to consider as bullshit words
     """

@@ -4,7 +4,8 @@ from captum.attr import LayerIntegratedGradients, visualization
 from utils import create_data_loader, load_base_model, create_train_test_split
 from sklearn.metrics import classification_report, confusion_matrix
 from tqdm import tqdm
-
+import json
+from collections import defaultdict
 
 def get_word_attribution(n_steps, review: str | list, model, tokenizer, target = 1, internal_batch_size=16):
     """
@@ -217,6 +218,33 @@ def model_evaluation(model, test_df, tokenizer, device):
 
     return class_report, confus_mat
 
+def get_most_meaningful_words(attribution_values_json, top_n=10, absolute=True):
+    """
+    Extracts the top_n most meaningful words based on their average attribution scores.
+
+    :param attribution_values_json: JSON file containing word attributions.
+    :param top_n: Number of top words to extract.
+    :param absolute: Whether to consider absolute attribution scores for sorting.
+
+    :return: List of top_n words with highest attributions and None. If absolute is False, 
+             returns two lists for positive and negative attributions.
+    """
+
+    with open(attribution_values_json, 'r') as f:
+        data = json.load(f)
+        
+    if absolute:
+        sorted_keys = sorted(data.items(), key=lambda item: abs(item[1]), reverse=True)
+        return sorted_keys[:top_n], None
+    else:
+        # Sort separately for positive and negative attributions
+        sorted_keys_positive = sorted(data.items(), key=lambda item: item[1], reverse=True)
+        sorted_keys_positive = [item for item in sorted_keys_positive if item[1] > 0]
+
+        sorted_keys_negative = sorted(data.items(), key=lambda item: item[1])
+        sorted_keys_negative = [item for item in sorted_keys_negative if item[1] < 0]
+
+        return sorted_keys_positive[:top_n], sorted_keys_negative[:top_n]
 
 if __name__ == '__main__':
     # training_with_explanaition_test_run()
