@@ -81,7 +81,7 @@ def run_attributions(n_steps, save_every, internal_batch_size, tokenizer, model,
         return output_json, total_abs_delta / len(reviews)
     
     # Start from the last saved index
-    reviews_to_process = reviews #[start_index:]
+    reviews_to_process = reviews[start_index:]
     
     # Calculate word attributions
     for i, review in enumerate(tqdm(reviews_to_process, desc="Calculating Attributions", initial=start_index, total=len(reviews))):
@@ -159,6 +159,7 @@ def run_attributions(n_steps, save_every, internal_batch_size, tokenizer, model,
     return output_json, final_avg_delta
 
 def extract_logits(pth_model_path, bert_base_name, train_df, output_json="review_logits.json", review_column="review", batch_size=32):
+
     #TODO: REFACTOR THIS FUNCTION
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
