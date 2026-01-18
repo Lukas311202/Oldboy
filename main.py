@@ -55,9 +55,10 @@ if __name__ == "__main__":
     # NOTE: IN REPORT SCHREIBEN WARUM WIR N_STEPS GENOMMEN HABEN (Original paper zitieren) Mit delta value (delta sollte < 0.05 sein laut paper um gute attributionen zu haben. Das sind 20 bis 300 steps)
 
     # Get most meaningful words
-    most_meaningful_words, _ = get_most_meaningful_words(attribution_values_json, top_n=20, absolute=True)
+    most_meaningful_words, _ = get_most_meaningful_words(attribution_values_json, top_n=200, absolute=True, threshold=100)
 
-    print(most_meaningful_words)
+    for word, score in most_meaningful_words:
+        print(f"Word: {word}, Score: {score}")
 
     # TODO: Logit function fertig schreiben um delta besser diskutieren zu können 
     """
