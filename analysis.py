@@ -1,7 +1,7 @@
 import torch
 from torch.optim import AdamW
 from captum.attr import LayerIntegratedGradients, visualization
-from utils import create_data_loader, load_base_model, create_train_test_split
+from utils import create_data_loader, load_base_model, create_train_test_split, train_one_step
 from sklearn.metrics import classification_report, confusion_matrix
 from tqdm import tqdm
 import json
@@ -65,7 +65,7 @@ def get_word_attribution(n_steps, review: str | list, model, tokenizer, target =
 
     return {"tokens":tokens, "attributions":attributions_sum}, delta
 
-def loss_fn(output : torch.Tensor, labels, word_scores : dict[str, any], bullshit_words : list[str]) -> torch.Tensor:
+def loss_fn(output : torch.Tensor, labels, word_scores : dict[str, any], bullshit_words : list[str], lam : float = 1.0) -> torch.Tensor:
     logits = output.logits
     
     criterion = torch.nn.CrossEntropyLoss(reduction='none')
@@ -81,17 +81,10 @@ def loss_fn(output : torch.Tensor, labels, word_scores : dict[str, any], bullshi
                 attributions[review, i] = 0
     
         attributions_sum = attributions[review].sum()
-        individual_loss[review] += attributions_sum
+        individual_loss[review] += lam * attributions_sum
     
     final_loss = individual_loss.pow(2).mean()
-    
-    # found_bs :int = 0
-    # for bs in bullshit_words:
-    #     bs_loss = word_scores.get(bs, 0.0)
-    #     if bs_loss:
-    #         found_bs += 1
-    #     res += bs_loss
-    # print(f"found {found_bs} bullshit words")
+
     return final_loss
 
     
@@ -127,6 +120,65 @@ def training_with_explanaition_batched_test_run():
         loss.backward()
         optimizer.step()
         #based on that reason adjust the loss function
+
+def train_with_explaination_one_step(
+        model : torch.nn.Module,
+        tokenizer,
+        train_df, 
+        optimizer, 
+        device,
+        bullshit_words : list,
+        explanaition_loss_ratio = 0.2, 
+        lam = 1.0,
+        n_steps = 500,
+        batch_size=16
+    ):
+    """trains the model in two phaes. One regular training and one where we incorporate the additional loss via usage of the bullshit words
+
+    Args:
+        explanaition_loss_ratio (float, optional): determines the raio how much of the training set 
+            is trained regularly (1.0 - ex_loss_training_data_loader) how much with the extra loss. Defaults to 0.2.
+        lam (float, optional): lambda for the explanaition loss
+        bullshit_words (list): list of strings that are considered bullshit words and will be punished for using
+    """
+    
+    #split the training set into two subsets
+    split_idx = int(len(train_df) * (1.0 - explanaition_loss_ratio)) 
+    regular_training_set = train_df[:split_idx]
+    regular_training_data_loader = create_data_loader(regular_training_set, tokenizer, batch_size)
+    ex_loss_training_set = train_df[split_idx:]
+    ex_loss_training_data_loader = create_data_loader(ex_loss_training_set, tokenizer, batch_size)
+    #first train regularly with the first set
+    print("Regular training started")
+    first_phase_avg_loss = 0.0#train_one_step(model, regular_training_data_loader, optimizer, device)
+    print("Regular training finished. Starting explanaition loss training")
+    #then tain with the second set, with the explanaition loss
+    model.train()
+    
+    second_phase_total_loss = 0.0
+    for batch in tqdm(ex_loss_training_data_loader):
+        input_ids = batch[0].to(device)
+        attention_mask = batch[1].to(device)
+        label = batch[2].to(device)
+        
+        optimizer.zero_grad()
+        
+        output = model(input_ids=input_ids, attention_mask=attention_mask, labels=label)
+        reason, delta  = get_word_attribution(n_steps, 
+                                              batch, 
+                                              model, 
+                                              tokenizer,
+                                              target=1,
+                                            )
+        
+        loss = loss_fn(output, label, reason, bullshit_words, lam=lam)
+        loss.backward()
+        optimizer.step()
+        
+        second_phase_total_loss += loss.item()
+    second_phase_avg_loss = second_phase_total_loss / len(ex_loss_training_set)
+    
+    return first_phase_avg_loss, second_phase_avg_loss
 
 def training_with_explanaition_test_run():
     "method to test, training the model on a single example review, where we also use the IG to adjust the training of the model"

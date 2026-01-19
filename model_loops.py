@@ -3,11 +3,12 @@ import torch
 from torch.optim import AdamW
 from collections import defaultdict
 from tqdm import tqdm
-from analysis import get_word_attribution
+from analysis import get_word_attribution, train_with_explaination_one_step
 import pandas as pd
 import json
 from transformers import BertTokenizer, BertForSequenceClassification
 import pandas as pd
+
 def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tuned_model_path="fine_tuned_bert.pth", 
                    epochs=3, batch_size=16, learning_rate=2e-5):
     """
@@ -41,6 +42,39 @@ def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tune
     # Save the fine-tuned model
     torch.save(model.state_dict(), fine_tuned_model_path)
 
+    return fine_tuned_model_path
+
+def fine_tune_with_explanaitions(train_df, 
+                                 base_model="google-bert/bert-base-cased", 
+                                 fine_tuned_model_path="fine_tuned_bert_with_ex.pth", 
+                                 epochs=3, 
+                                 batch_size=16, 
+                                 learning_rate=2e-5,
+                                 bullshit_words=[],
+                                 explanaition_loss_ratio=0.2,
+                                 lam=1.0,
+                                 n_steps=500
+                                ):
+    
+    tokenizer, model, device = load_base_model(base_model)
+    optimizer = AdamW(model.parameters(), lr=learning_rate)
+    
+    for epoch in range(epochs):
+        first_phase_avg_loss, second_phase_avg_loss = train_with_explaination_one_step(
+            model=model,
+            tokenizer=tokenizer,
+            train_df=train_df,
+            optimizer=optimizer,
+            device=device,
+            bullshit_words=bullshit_words,
+            explanaition_loss_ratio=explanaition_loss_ratio,
+            lam=lam,
+            n_steps=n_steps,
+            batch_size=batch_size
+        )
+        print(f"Epoch {epoch + 1}/{epochs}, First Phase Average Loss: {first_phase_avg_loss:.4f}, Second Phase Average Loss: {second_phase_avg_loss:.4f}")
+    
+    torch.save(model.state_dict(), fine_tuned_model_path)
     return fine_tuned_model_path
 
 def run_attributions(n_steps, save_every, internal_batch_size, tokenizer, model, train_df, output_json="global_word_attributions.json", review_column="review"):
@@ -215,4 +249,16 @@ def extract_logits(pth_model_path, bert_base_name, train_df, output_json="review
 
 if __name__ == "__main__":
     train_df, test_df = create_train_test_split()
-    extract_logits(pth_model_path="fine_tuned_bert.pth", bert_base_name="google-bert/bert-base-cased", train_df=train_df)
+    # extract_logits(pth_model_path="fine_tuned_bert.pth", bert_base_name="google-bert/bert-base-cased", train_df=train_df)
+    bullshit_words = [
+        "Zero", "Rather", "turkey", "sheer", "hi", "episodes", "episode", "today", "flu",
+        "summary", "sports", "Kid", "block", "Sinatra", "born", "Anyone", "entry", "Although", "Bourne",
+        "app", "DVD", "short", "animated", "Yet", "Many", "Not", "scenery", "beginning", "Day", "bit",
+        "adult", "describe", "true", "personally", "ready", "match"
+    ]
+    fine_tune_with_explanaitions(train_df, 
+                                 n_steps=1, 
+                                 batch_size=4, 
+                                 epochs=1,
+                                 bullshit_words=bullshit_words
+                                )
