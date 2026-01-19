@@ -1,3 +1,4 @@
 fine_tuned_bert.pth
+fine_tuned_bert_with_ex.pth
 __pycache__/
 checkpoint.pth
