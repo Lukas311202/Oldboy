@@ -6,6 +6,7 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
 from transformers import AutoTokenizer,  AutoModelForSequenceClassification
 import os
+from tqdm import tqdm
 
 def load_base_model(model_name="google-bert/bert-base-cased") -> tuple[AutoTokenizer, torch.nn.Module, any]:
     """
@@ -99,7 +100,7 @@ def train_one_step(model, data_load, optimizer, device):
     model.train()
     total_loss = 0
 
-    for batch in data_load:
+    for batch in tqdm(data_load):
         # Move batch to device if possible
         input_ids, attention_mask, labels = [b.to(device) for b in batch]
 
