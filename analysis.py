@@ -6,6 +6,7 @@ from sklearn.metrics import classification_report, confusion_matrix
 from tqdm import tqdm
 import json
 from collections import defaultdict
+import numpy as np
 
 def get_word_attribution(n_steps, review: str | list, model, tokenizer, target = 1, internal_batch_size=16):
     """
@@ -319,7 +320,47 @@ def get_most_meaningful_words(attribution_values_json, top_n=10, absolute=True, 
         sorted_keys_negative = [item for item in sorted_keys_negative if item[1] < 0]
 
         return sorted_keys_positive[:top_n], sorted_keys_negative[:top_n]
+    
+
+def calculate_relative_error(logits_json_path="review_logits.json", stats_json_path="global_word_attributions_stats.json"):
+    """
+    Calculates the prozentual error between the IG-procedure in relation to hte models output logits.
+
+    :param logits_json_path: Path to the JSON file containing review logits.
+    :param stats_json_path: Path to the JSON file containing global word attribution statistics.
+
+    :return: relative_error: float
+    """
+
+    with open(stats_json_path, 'r') as f:
+        stats = json.load(f)
+
+    with open(logits_json_path, 'r') as f:
+        logits_data = json.load(f)
+
+    # Delta values from stats
+    total_abs_delta = stats["total_abs_delta"]
+    reviews_processed = stats["reviews_processed"]
+    raw_avg_delta = total_abs_delta / reviews_processed
+
+    # Extract predicted class logits
+    pred_classes = []
+    for entry in logits_data:
+        
+        pred_class = entry["prediction"]
+        pred_class_logit = entry[f"logit_{pred_class}"]
+
+        pred_classes.append(pred_class_logit)
+
+    # Get average logit magnitude
+    avg_logit_magnitude = np.mean(pred_classes) 
+    relative_error = raw_avg_delta / avg_logit_magnitude
+
+    return relative_error
+
 
 if __name__ == '__main__':
     # training_with_explanaition_test_run()
-    training_with_explanaition_batched_test_run()
+    #training_with_explanaition_batched_test_run()
+    relative_error = calculate_relative_error()
+    print(relative_error)
