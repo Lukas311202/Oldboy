@@ -65,10 +65,7 @@ def run_attributions(n_steps, save_every, internal_batch_size, tokenizer, model,
            
     checkpoint_json =  output_json.replace(".json", "_stats.json")
 
-    # Load reviews
     reviews = train_df[review_column].tolist()
-
-    #reviews = create_data_loader(train_df, tokenizer, batch_size=4)
 
     print(f"Amount of reviews: {len(reviews)}")
 
@@ -77,7 +74,7 @@ def run_attributions(n_steps, save_every, internal_batch_size, tokenizer, model,
 
     # If already finished, just return
     if start_index >= len(reviews):
-        print("Calcualtion was already completed in previous run. Loading results.")
+        print("Calcualtion was already completed in previous run.")
         return output_json, total_abs_delta / len(reviews)
     
     # Start from the last saved index
@@ -91,7 +88,6 @@ def run_attributions(n_steps, save_every, internal_batch_size, tokenizer, model,
 
         word_attr, delta = get_word_attribution(n_steps, review, model, tokenizer, internal_batch_size=internal_batch_size)
 
-        # Convert delta to float
         delta_float = delta.item() if torch.is_tensor(delta) else delta
 
         total_abs_delta += abs(delta_float)
@@ -110,7 +106,6 @@ def run_attributions(n_steps, save_every, internal_batch_size, tokenizer, model,
         # Checkpoint
         if (i + 1) % save_every == 0:
 
-            # Convert tensors to floats for JSON serialization
             word_sums_float = {word: float(word_sums[word]) for word in word_sums}
             
             checkpoint_data = {
@@ -132,7 +127,6 @@ def run_attributions(n_steps, save_every, internal_batch_size, tokenizer, model,
 
             print(f"Processed {current_real_index + 1} reviews, last delta: {delta_float}, last average delta: {total_abs_delta / (current_real_index + 1)}")
 
-    # Calculate averages of attributions
     word_avg = {word: word_sums[word] / word_counts[word] for word in word_sums}
 
     # Save IG results to provided JSON path
@@ -158,35 +152,32 @@ def run_attributions(n_steps, save_every, internal_batch_size, tokenizer, model,
 
     return output_json, final_avg_delta
 
-def extract_logits(pth_model_path, bert_base_name, train_df, output_json="review_logits.json", review_column="review", batch_size=32):
+def extract_logits(train_df, output_json="review_logits.json", review_column="review", batch_size=32):
+    """
+    Extracts logits from the fine-tuned model for all reviews in the provided dataframe.
+    Saves the logits to a JSON file.
 
-    #TODO: REFACTOR THIS FUNCTION
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    :param train_df: DataFrame containing training data.
+    :param output_json: Path to save the output JSON file with logits.
+    :param review_column: Name of the column containing the reviews.
+    :param batch_size: Batch size for processing reviews.
+    """
     
-    print(f"Initialisiere Modell-Architektur ({bert_base_name})...")
-    tokenizer = BertTokenizer.from_pretrained(bert_base_name)
-    
-    # 1. Architektur laden (muss exakt zum Training passen, z.B. num_labels=2)
-    model = BertForSequenceClassification.from_pretrained(bert_base_name, num_labels=2)
-    
-    # 2. Die gespeicherten Gewichte aus der .pth Datei laden
-    print(f"Lade Gewichte aus {pth_model_path}...")
-    state_dict = torch.load(pth_model_path, map_location=device)
-    model.load_state_dict(state_dict)
+    tokenizer, model, device = load_fine_tuned_model()
     
     model.to(device)
     model.eval()
 
-    reviews = train_df[review_column].tolist()[:100]  # Nur die ersten 100 Reviews für dieses Beispiel
+    reviews = train_df[review_column].tolist()
     logits_results = []
-
-    print(f"Berechne Logits für {len(reviews)} Reviews...")
     
     with torch.no_grad():
         for i in tqdm(range(0, len(reviews), batch_size)):
+
+            # Create batch
             batch_texts = reviews[i:i + batch_size]
             
+            # Tokenize and encode the batch
             encoded = tokenizer(
                 batch_texts, 
                 truncation=True, 
@@ -195,24 +186,23 @@ def extract_logits(pth_model_path, bert_base_name, train_df, output_json="review
                 return_tensors='pt'
             ).to(device)
 
+            # Get model outputs
             outputs = model(**encoded)
             batch_logits = outputs.logits.cpu().numpy()
 
+            # Save logits for each review
             for j, logit in enumerate(batch_logits):
-                # Wir speichern beide Logits und die finale Entscheidung
+                
                 logits_results.append({
                     "review_index": i + j,
-                    "logit_0": float(logit[0]), # Score für Negative
-                    "logit_1": float(logit[1]), # Score für Positive
-                    "prediction": int(logit.argmax())
+                    "logit_0": float(logit[0]), # Negative class logit
+                    "logit_1": float(logit[1]), # Positive class logit
+                    "prediction": int(logit.argmax()) # Predicted class
                 })
 
-    # Speichern als JSON
     with open(output_json, "w") as f:
         json.dump(logits_results, f, indent=4)
-    
-    print(f"✅ Fertig! Logits gespeichert in {output_json}")
 
 if __name__ == "__main__":
     train_df, test_df = create_train_test_split()
-    extract_logits(pth_model_path="fine_tuned_bert.pth", bert_base_name="google-bert/bert-base-cased", train_df=train_df)
+    extract_logits(train_df=train_df)
