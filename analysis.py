@@ -7,6 +7,7 @@ from tqdm import tqdm
 import json
 from collections import defaultdict
 import numpy as np
+import os
 
 def get_word_attribution(n_steps, review: str | list, model, tokenizer, target = 1, internal_batch_size=16):
     """
@@ -132,7 +133,10 @@ def train_with_explaination_one_step(
         explanaition_loss_ratio = 0.2, 
         lam = 1.0,
         n_steps = 500,
-        batch_size=16
+        batch_size=16,
+        checkpoint_every_n_step=1,
+        checkpoint_path="checkpoint.pth",
+        epoch=1
     ):
     """trains the model in two phaes. One regular training and one where we incorporate the additional loss via usage of the bullshit words
 
@@ -143,21 +147,45 @@ def train_with_explaination_one_step(
         bullshit_words (list): list of strings that are considered bullshit words and will be punished for using
     """
     
+    prev_checkpoint = {}
+    if os.path.exists(checkpoint_path):
+        prev_checkpoint = torch.load(checkpoint_path)
+    
+    #index of the last_batch that we trained on before the program crashed
+    last_batch_idx : int = 0
+    last_batch_idx = prev_checkpoint.get("batch_idx", last_batch_idx)
+    
     #split the training set into two subsets
     split_idx = int(len(train_df) * (1.0 - explanaition_loss_ratio)) 
     regular_training_set = train_df[:split_idx]
     regular_training_data_loader = create_data_loader(regular_training_set, tokenizer, batch_size)
     ex_loss_training_set = train_df[split_idx:]
     ex_loss_training_data_loader = create_data_loader(ex_loss_training_set, tokenizer, batch_size)
+    
     #first train regularly with the first set
-    print("Regular training started")
-    first_phase_avg_loss = train_one_step(model, regular_training_data_loader, optimizer, device)
-    print("Regular training finished. Starting explanaition loss training")
+    ##we can skip the first phase if the last_batch_idx != 0 because it means that we already made a checkpoint during phase 2
+    
+    first_phase_avg_loss = 0.0
+    if last_batch_idx == 0:
+        print("Regular training started")
+        first_phase_avg_loss = train_one_step(model, regular_training_data_loader, optimizer, device)
+        print("Regular training finished. Starting explanaition loss training")
+    else:
+        print("can skip first learning phase, since last time we already reached the second")
     #then tain with the second set, with the explanaition loss
     model.train()
     
     second_phase_total_loss = 0.0
-    for batch in tqdm(ex_loss_training_data_loader):
+    
+    second_phase_total_loss = prev_checkpoint.get("second_phase_total_loss", second_phase_total_loss)
+    first_phase_avg_loss = prev_checkpoint.get("first_phase_avg_loss", first_phase_avg_loss)
+    
+    
+    for batch_idx, batch in enumerate(tqdm(ex_loss_training_data_loader)):
+        #we skip all the batches from the last (failed) run
+        if batch_idx < last_batch_idx:
+            continue
+        
         input_ids = batch[0].to(device)
         attention_mask = batch[1].to(device)
         label = batch[2].to(device)
@@ -177,7 +205,34 @@ def train_with_explaination_one_step(
         optimizer.step()
         
         second_phase_total_loss += loss.item()
+        
+        if (batch_idx + 1) % checkpoint_every_n_step == 0:
+            checkpoint = {
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'batch_idx':batch_idx,
+                'loss': loss,
+                'first_phase_avg_loss': first_phase_avg_loss,
+                "second_phase_total_loss": second_phase_total_loss
+                # Add anything else you need (e.g., scheduler state)
+            }
+            temp_filename = checkpoint_path + ".tmp"
+            torch.save(checkpoint, temp_filename)
+            os.replace(temp_filename, checkpoint_path)
     second_phase_avg_loss = second_phase_total_loss / len(ex_loss_training_set)
+    
+    ##at the end of the epoch we make a final checkpoint where we set to the next epoch
+    checkpoint = {
+                'epoch': epoch + 1,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': loss,
+                # Add anything else you need (e.g., scheduler state)
+            }
+    temp_filename = checkpoint_path + ".tmp"
+    torch.save(checkpoint, temp_filename)
+    os.replace(temp_filename, checkpoint_path)
     
     return first_phase_avg_loss, second_phase_avg_loss
 

@@ -8,6 +8,7 @@ import pandas as pd
 import json
 from transformers import BertTokenizer, BertForSequenceClassification
 import pandas as pd
+import os
 
 def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tuned_model_path="fine_tuned_bert.pth", 
                    epochs=3, batch_size=16, learning_rate=2e-5):
@@ -53,13 +54,44 @@ def fine_tune_with_explanaitions(train_df,
                                  bullshit_words=[],
                                  explanaition_loss_ratio=0.2,
                                  lam=1.0,
-                                 n_steps=500
+                                 n_steps=500,
+                                 checkpoint_every_n_step = 1
                                 ):
+    """fine tunes the model, using the regular loss alongside the loss of the explanaition method 
+
+    Args:
+        train_df (Pandas.Dataset): training set
+        base_model (str, optional): path to the HuggingFace mode which is used. Defaults to "google-bert/bert-base-cased".
+        fine_tuned_model_path (str, optional): _description_. Defaults to "fine_tuned_bert_with_ex.pth".
+        epochs (int, optional): _description_. Defaults to 3.
+        batch_size (int, optional): _description_. Defaults to 16.
+        learning_rate (_type_, optional): _description_. Defaults to 2e-5.
+        bullshit_words (list, optional): _description_. Defaults to [].
+        explanaition_loss_ratio (float, optional): % wise how much the dataset will be trained with explanaitions _description_. Defaults to 0.2.
+        lam (float, optional): lambda value which is multiplied with the IG loss to make it's influece more or less. Defaults to 1.0.
+        n_steps (int, optional): how many steps for IG. Defaults to 500.
+        checkpoint_every_n_step (int, optional): creates a checkpoint every n'th batch computed in the second learning phase. Defaults to 1.
+
+    Returns:
+        String: path to the (final) fine tunes weights
+    """
+    
+    checkpoint_path = "checkpoint.pth"
+    
     
     tokenizer, model, device = load_base_model(base_model)
     optimizer = AdamW(model.parameters(), lr=learning_rate)
     
-    for epoch in range(epochs):
+    if os.path.exists(checkpoint_path):
+        checkpoint = torch.load(checkpoint_path)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        start_epoch = checkpoint['epoch']
+        print(f"reload data from last failed run")
+    else:
+        start_epoch = 0
+    
+    for epoch in range(start_epoch, epochs):
         first_phase_avg_loss, second_phase_avg_loss = train_with_explaination_one_step(
             model=model,
             tokenizer=tokenizer,
@@ -70,8 +102,12 @@ def fine_tune_with_explanaitions(train_df,
             explanaition_loss_ratio=explanaition_loss_ratio,
             lam=lam,
             n_steps=n_steps,
-            batch_size=batch_size
+            batch_size=batch_size,
+            checkpoint_every_n_step=checkpoint_every_n_step,
+            checkpoint_path=checkpoint_path,
+            epoch=epoch,
         )
+        
         print(f"Epoch {epoch + 1}/{epochs}, First Phase Average Loss: {first_phase_avg_loss:.4f}, Second Phase Average Loss: {second_phase_avg_loss:.4f}")
     
     torch.save(model.state_dict(), fine_tuned_model_path)
@@ -246,9 +282,11 @@ if __name__ == "__main__":
         "app", "DVD", "short", "animated", "Yet", "Many", "Not", "scenery", "beginning", "Day", "bit",
         "adult", "describe", "true", "personally", "ready", "match"
     ]
+    
     fine_tune_with_explanaitions(train_df, 
                                  n_steps=1, 
-                                 batch_size=4, 
-                                 epochs=1,
-                                 bullshit_words=bullshit_words
+                                 batch_size=8, 
+                                 epochs=2,
+                                 bullshit_words=bullshit_words,
+                                 checkpoint_every_n_step=10
                                 )
