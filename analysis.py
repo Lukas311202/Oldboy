@@ -150,7 +150,7 @@ def train_with_explaination_one_step(
     ex_loss_training_data_loader = create_data_loader(ex_loss_training_set, tokenizer, batch_size)
     #first train regularly with the first set
     print("Regular training started")
-    first_phase_avg_loss = 0.0#train_one_step(model, regular_training_data_loader, optimizer, device)
+    first_phase_avg_loss = train_one_step(model, regular_training_data_loader, optimizer, device)
     print("Regular training finished. Starting explanaition loss training")
     #then tain with the second set, with the explanaition loss
     model.train()
