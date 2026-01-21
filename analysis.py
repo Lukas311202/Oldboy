@@ -1,6 +1,6 @@
 import torch
 from torch.optim import AdamW
-from captum.attr import LayerIntegratedGradients, visualization
+from captum.attr import LayerIntegratedGradients, visualization, IntegratedGradients
 from utils import create_data_loader, load_base_model, create_train_test_split, train_one_step
 from sklearn.metrics import classification_report, confusion_matrix
 from tqdm import tqdm
@@ -42,7 +42,8 @@ def get_word_attribution(n_steps, review: str | list, model, tokenizer, target =
     baseline_ids = torch.zeros_like(input_ids) # Often 0 is the [PAD] token ID
     # baseline_attention_mask = torch.zeros_like(attention_mask)
     
-    attributions, delta = lig.attribute(inputs=input_ids,
+    attributions, delta = lig.attribute(
+                                    inputs=input_ids,
                                     baselines=baseline_ids,
                                     target=target,
                                     return_convergence_delta=True,
@@ -67,27 +68,93 @@ def get_word_attribution(n_steps, review: str | list, model, tokenizer, target =
 
     return {"tokens":tokens, "attributions":attributions_sum}, delta
 
-def loss_fn(output : torch.Tensor, labels, word_scores : dict[str, any], bullshit_words : list[str], lam : float = 1.0) -> torch.Tensor:
-    logits = output.logits
-    
-    criterion = torch.nn.CrossEntropyLoss(reduction='none')
-    
-    individual_loss = criterion(logits, labels)
-    
-    attributions = word_scores.get("attributions")
-    tokens = word_scores.get("tokens")
-    
-    for review in range(len(tokens)):
-        for i, t in enumerate(tokens[review]):
-            if not t in bullshit_words:
-                attributions[review, i] = 0
-    
-        attributions_sum = attributions[review].sum()
-        individual_loss[review] += lam * attributions_sum
-    
-    final_loss = individual_loss.pow(2).mean()
+def get_word_attribution_for_training(model, batch, device, n_steps=20):
+    model.train() # Must be in train mode
+    input_ids = batch[0].to(device)
+    attention_mask = batch[1].to(device)
+    labels = batch[2].to(device)
 
-    return final_loss
+    # 1. Target the word embeddings sub-module
+    target_layer = model.bert.embeddings.word_embeddings
+
+    # 2. Define the wrapper
+    def forward_func(inputs, mask):
+        # We must extract logits for Captum
+        return model(input_ids=inputs, attention_mask=mask).logits
+
+    lig = LayerIntegratedGradients(forward_func, target_layer)
+
+    # 3. Force the model to keep the graph alive
+    # We use return_convergence_delta=True to avoid the unpacking error
+    attributions, delta = lig.attribute(
+        inputs=input_ids,
+        target=labels,
+        additional_forward_args=(attention_mask,),
+        n_steps=n_steps,
+        attribute_to_layer_input=False,
+        return_convergence_delta=True 
+    )
+
+    # Ensure the attribution itself requires grad
+    # (Captum usually handles this, but we can sum to verify)
+    word_scores = attributions.sum(dim=-1)
+    
+    return word_scores, delta
+
+# def loss_fn(output : torch.Tensor, labels, word_scores : dict[str, any], bullshit_words : list[str], lam : float = 1.0) -> torch.Tensor:
+#     logits = output.logits
+    
+#     criterion = torch.nn.CrossEntropyLoss(reduction='none')
+    
+#     individual_loss = criterion(logits, labels)
+    
+#     attributions = word_scores.get("attributions")
+#     tokens = word_scores.get("tokens")
+    
+#     for review in range(len(tokens)):
+#         ex_loss = 0.0
+#         for i, t in enumerate(tokens[review]):
+#             if not t in bullshit_words:
+#                 attributions[review, i] = 0
+#             else:
+#                 ex_loss += abs(attributions[review, i])
+        
+#         attributions_sum = ex_loss#attributions[review].sum()
+#         individual_loss[review] += lam * attributions_sum
+    
+#     final_loss = individual_loss.pow(2).mean()
+
+#     return final_loss
+
+def loss_fn(output, labels, attributions, input_ids, bullshit_ids, lam=1.0):
+    """
+    Args:
+        output: The model output object (containing logits)
+        labels: Ground truth labels
+        attributions: [batch_size, seq_len] tensor from get_word_attribution
+        input_ids: [batch_size, seq_len] the original token IDs
+        bullshit_ids: [num_bullshit_tokens] tensor of IDs to punish
+        lam: The penalty strength
+    """
+    # 1. Standard CrossEntropy (Classification)
+    # Use reduction='mean' (default) for stability
+    criterion = torch.nn.CrossEntropyLoss()
+    ce_loss = criterion(output.logits, labels)
+    
+    # 2. Explanation Loss (The Punishment)
+    # Create a mask: 1.0 if the token is a 'bullshit' token, 0.0 otherwise
+    # torch.isin is very efficient on GPU
+    is_bullshit_mask = torch.isin(input_ids, bullshit_ids).float()
+    
+    # Calculate the sum of absolute attributions for only the bullshit tokens
+    # We use .abs() because both positive and negative attribution 
+    # indicate the model is 'using' that word to make its decision.
+    attribution_penalty = (attributions.abs() * is_bullshit_mask).sum(dim=-1).mean()
+    # if attribution_penalty.item() != 0.0:
+        # breakpoint
+    
+    # Total loss
+    return ce_loss + (lam * attribution_penalty)
 
     
 def training_with_explanaition_batched_test_run():
@@ -129,7 +196,7 @@ def train_with_explaination_one_step(
         train_df, 
         optimizer, 
         device,
-        bullshit_words : list,
+        bullshit_ids : torch.Tensor,
         explanaition_loss_ratio = 0.2, 
         lam = 1.0,
         n_steps = 500,
@@ -144,8 +211,11 @@ def train_with_explaination_one_step(
         explanaition_loss_ratio (float, optional): determines the raio how much of the training set 
             is trained regularly (1.0 - ex_loss_training_data_loader) how much with the extra loss. Defaults to 0.2.
         lam (float, optional): lambda for the explanaition loss
-        bullshit_words (list): list of strings that are considered bullshit words and will be punished for using
+        bullshit_ids (list): list of strings that are considered bullshit words and will be punished for using
     """
+    
+    for param in model.bert.embeddings.word_embeddings.parameters():
+        param.requires_grad = True
     
     prev_checkpoint = {}
     if os.path.exists(checkpoint_path):
@@ -193,14 +263,16 @@ def train_with_explaination_one_step(
         optimizer.zero_grad()
         
         output = model(input_ids=input_ids, attention_mask=attention_mask, labels=label)
-        reason, delta  = get_word_attribution(n_steps, 
-                                              batch, 
-                                              model, 
-                                              tokenizer,
-                                              target=1,
-                                            )
         
-        loss = loss_fn(output, label, reason, bullshit_words, lam=lam)
+        reason, _  = get_word_attribution_for_training(
+                                                model=model, 
+                                                batch=batch, 
+                                                device=device, 
+                                                n_steps=n_steps,
+                                            )
+        # reason.requires_grad = True
+
+        loss = loss_fn(output, label, reason, input_ids, bullshit_ids, lam=lam)
         loss.backward()
         optimizer.step()
         
@@ -220,7 +292,7 @@ def train_with_explaination_one_step(
             temp_filename = checkpoint_path + ".tmp"
             torch.save(checkpoint, temp_filename)
             os.replace(temp_filename, checkpoint_path)
-    second_phase_avg_loss = second_phase_total_loss / len(ex_loss_training_set)
+    second_phase_avg_loss = second_phase_total_loss / len(ex_loss_training_data_loader)
     
     ##at the end of the epoch we make a final checkpoint where we set to the next epoch
     checkpoint = {
@@ -279,6 +351,7 @@ def training_with_explanaition_test_run():
         
         #compute word_score
         word_scores = get_word_attribution(5, review, model, tokenizer)
+        word_scores.requires_grad()
         
         #compute final loss with bullshit words
         loss = output.loss
@@ -416,6 +489,6 @@ def calculate_relative_error(logits_json_path="review_logits.json", stats_json_p
 
 if __name__ == '__main__':
     # training_with_explanaition_test_run()
-    #training_with_explanaition_batched_test_run()
-    relative_error = calculate_relative_error()
-    print(relative_error)
+    training_with_explanaition_batched_test_run()
+    # relative_error = calculate_relative_error()
+    # print(relative_error)

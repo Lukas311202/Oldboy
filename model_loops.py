@@ -79,8 +79,19 @@ def fine_tune_with_explanaitions(train_df,
     checkpoint_path = "checkpoint.pth"
     
     
+    
     tokenizer, model, device = load_base_model(base_model)
     optimizer = AdamW(model.parameters(), lr=learning_rate)
+
+   #Converts the string tokens to BERT compatible input ids 
+    bullshit_token_ids = set()
+    for word in bullshit_words:
+        # encode without special tokens [CLS]/[SEP] to get the raw IDs
+        ids = tokenizer.encode(word, add_special_tokens=False)
+        bullshit_token_ids.update(ids)
+
+    # Convert to a tensor for use with torch.isin inside the loss function
+    bullshit_ids_tensor = torch.tensor(list(bullshit_token_ids)).to(device)
     
     if os.path.exists(checkpoint_path):
         checkpoint = torch.load(checkpoint_path)
@@ -98,7 +109,7 @@ def fine_tune_with_explanaitions(train_df,
             train_df=train_df,
             optimizer=optimizer,
             device=device,
-            bullshit_words=bullshit_words,
+            bullshit_ids=bullshit_ids_tensor,
             explanaition_loss_ratio=explanaition_loss_ratio,
             lam=lam,
             n_steps=n_steps,
@@ -288,5 +299,7 @@ if __name__ == "__main__":
                                  batch_size=8, 
                                  epochs=2,
                                  bullshit_words=bullshit_words,
-                                 checkpoint_every_n_step=10
+                                 checkpoint_every_n_step=10,
+                                 lam=1.0,
+                                 fine_tuned_model_path="test_fine_tuned_bert_with_ex.pth"
                                 )
