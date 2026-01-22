@@ -1,4 +1,11 @@
-from utils import checkpoint_verification, create_data_loader, create_train_test_split, load_base_model, load_fine_tuned_model, train_one_step
+from utils import (
+    checkpoint_verification,
+    create_data_loader,
+    create_train_test_split,
+    load_base_model,
+    load_fine_tuned_model,
+    train_one_step
+)
 import torch
 from torch.optim import AdamW
 from collections import defaultdict
@@ -11,7 +18,7 @@ import pandas as pd
 import os
 
 def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tuned_model_path="fine_tuned_bert.pth", 
-                   epochs=3, batch_size=16, learning_rate=2e-5):
+                   epochs=3, batch_size=16, learning_rate=2e-5, bullshit_words=None):
     """
     Fine-tunes the BERT model on the IMDB dataset. Saves the output model to the specified path.
     
@@ -29,7 +36,13 @@ def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tune
     tokenizer, model, device = load_base_model(base_model)
 
     # Create data loader
-    train_loader = create_data_loader(train_df, tokenizer, batch_size=batch_size)
+    train_loader = create_data_loader(
+        train_df,
+        tokenizer,
+        batch_size=batch_size,
+        bullshit_words=bullshit_words
+    )
+
 
     # Setup optimizer
     optimizer = AdamW(model.parameters(), lr=learning_rate) # Learning rate can be adjusted

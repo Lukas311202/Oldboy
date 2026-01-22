@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from transformers import AutoTokenizer,  AutoModelForSequenceClassification
 import os
 from tqdm import tqdm
+import re
 
 def load_base_model(model_name="google-bert/bert-base-cased") -> tuple[AutoTokenizer, torch.nn.Module, any]:
     """
@@ -85,6 +86,15 @@ def create_train_test_split(data="imdb_dataset.csv", text_column="review", label
 
     return train_df, test_df
 
+def mask_bullshit_words(text: str, bullshit_words: list, mask_token: str):
+    """
+    Replaces bullshit words in text with [MASK], word-boundary aware.
+    """
+    for word in bullshit_words:
+        pattern = r"\b" + re.escape(word) + r"\b"
+        text = re.sub(pattern, mask_token, text)
+    return text
+
 def train_one_step(model, data_load, optimizer, device):
     """
     Trains the model for one epoch.
@@ -121,11 +131,22 @@ def train_one_step(model, data_load, optimizer, device):
 
     return avg_loss
 
-def create_data_loader(df, tokenizer, batch_size=16, max_length=128):
+def create_data_loader(df, tokenizer, batch_size=16, max_length=128, bullshit_words=None):
 
-    # Tokenize the texts
+    texts = df['review'].tolist()
+
+    if bullshit_words is not None and len(bullshit_words) > 0:
+        texts = [
+            mask_bullshit_words(
+                text=text,
+                bullshit_words=bullshit_words,
+                mask_token=tokenizer.mask_token
+            )
+            for text in texts
+        ]
+
     input_encodings = tokenizer(
-        df['review'].tolist(),
+        texts,
         truncation=True,
         padding=True,
         max_length=max_length,
@@ -134,17 +155,13 @@ def create_data_loader(df, tokenizer, batch_size=16, max_length=128):
 
     labels = torch.tensor(df['sentiment'].tolist())
 
-    # Create Tensordataset instance
     dataset = TensorDataset(
         input_encodings['input_ids'],
         input_encodings['attention_mask'],
         labels
     )
 
-    # Create Dataloader instance
-    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-
-    return data_loader
+    return DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
 def checkpoint_verification(checkpoint_json):
     """
