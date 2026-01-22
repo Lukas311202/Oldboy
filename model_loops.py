@@ -10,14 +10,14 @@ import torch
 from torch.optim import AdamW
 from collections import defaultdict
 from tqdm import tqdm
-from analysis import get_word_attribution, train_with_explaination_one_step
+from analysis import get_word_attribution, model_evaluation, train_with_explaination_one_step
 import pandas as pd
 import json
 from transformers import BertTokenizer, BertForSequenceClassification
 import pandas as pd
 import os
 
-def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tuned_model_path="model_weights/test_fine_tuned_bert_with_ex.pth", 
+def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tuned_model_path="model_weights/test_fine_tuned_bert.pth", 
                    epochs=3, batch_size=16, learning_rate=2e-5, bullshit_words=None):
     """
     Fine-tunes the BERT model on the IMDB dataset. Saves the output model to the specified path.
@@ -60,7 +60,7 @@ def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tune
 
 def fine_tune_with_explanaitions(train_df, 
                                  base_model="google-bert/bert-base-cased", 
-                                 fine_tuned_model_path="fine_tuned_bert_with_ex.pth", 
+                                 fine_tuned_model_path="model_weights/fine_tuned_bert_with_ex.pth", 
                                  epochs=3, 
                                  batch_size=16, 
                                  learning_rate=2e-5,
@@ -304,13 +304,3 @@ if __name__ == "__main__":
         "app", "DVD", "short", "animated", "Yet", "Many", "Not", "scenery", "beginning", "Day", "bit",
         "adult", "describe", "true", "personally", "ready", "match"
     ]
-    
-    fine_tune_with_explanaitions(train_df, 
-                                 n_steps=500, 
-                                 batch_size=80, 
-                                 epochs=3,
-                                 bullshit_words=bullshit_words,
-                                 checkpoint_every_n_step=5,
-                                 lam=1.0,
-                                 fine_tuned_model_path="model_weights/test_fine_tuned_bert_with_ex.pth"
-                                )

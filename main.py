@@ -70,8 +70,9 @@ if __name__ == "__main__":
     )
 
     # Calculate word attributions
-    attribution_values_json, final_avg_delta = run_attributions(n_steps=30, save_every=15, internal_batch_size=80, tokenizer=tokenizer, model=fine_tuned_model, train_df=reduced_df) 
+    #attribution_values_json, final_avg_delta = run_attributions(n_steps=30, save_every=15, internal_batch_size=80, tokenizer=tokenizer, model=fine_tuned_model, train_df=reduced_df) 
     # NOTE: IN REPORT SCHREIBEN WARUM WIR N_STEPS GENOMMEN HABEN (Original paper zitieren) Mit delta value (delta sollte < 0.05 sein laut paper um gute attributionen zu haben. Das sind 20 bis 300 steps)
+    attribution_values_json = "global_word_attributions.json"
 
     # Get most meaningful words
     most_meaningful_words, _ = get_most_meaningful_words(attribution_values_json, top_n=200, absolute=True, threshold=100)
@@ -87,7 +88,7 @@ if __name__ == "__main__":
     ]
 
     # Fine-tune again with explanation-based loss
-    ex_model_path = fine_tune_with_explanaitions(train_df, 
+    """ex_model_path = fine_tune_with_explanaitions(train_df, 
                                  n_steps=500, 
                                  batch_size=80, 
                                  epochs=3,
@@ -96,6 +97,9 @@ if __name__ == "__main__":
                                  lam=1.0,
                                  fine_tuned_model_path="model_weights/fine_tuned_bert_with_ex.pth"
                                 )
+    """
+
+    ex_model_path = "model_weights/fine_tuned_bert_with_ex.pth"
 
     # Load the fine-tuned model with explanations
     _, ex_model, _ = load_fine_tuned_model(
@@ -162,3 +166,39 @@ if __name__ == "__main__":
         CLASS_NAMES,
         subdir=subdir
     )
+
+    # Load model with masking out bullshit words fine-tuning
+    #mask_path = fine_tune_loop(train_df=train_df, bullshit_words=bullshit_words, fine_tuned_model_path="model_weights/test_fine_tuned_bert_masking.pth")
+    mask_path = "model_weights/test_fine_tuned_bert_masking.pth"
+
+    tokenizer, model, device = load_fine_tuned_model(model_path=mask_path)
+
+    class_report_masked, confus_matrix_masked = model_evaluation(model=model, test_df=test_df, tokenizer=tokenizer, device=device)
+
+    subdir = "masking"
+
+    # Confusion matrix
+    plot_confusion_matrix(
+        confus_matrix_masked, 
+        CLASS_NAMES,
+        subdir=subdir
+    )
+
+    plot_confusion_matrix(
+        confus_matrix_masked, 
+        CLASS_NAMES, 
+        subdir=subdir,
+        normalize=True
+    )
+
+    # Classification report metrics
+    plot_classification_report(
+        class_report_masked, 
+        CLASS_NAMES,
+        subdir=subdir
+    )
+
+    # Overall performance metrics
+    plot_overall_metrics(class_report_masked, subdir=subdir)
+    
+

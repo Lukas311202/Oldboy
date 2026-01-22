@@ -36,7 +36,7 @@ def load_base_model(model_name="google-bert/bert-base-cased") -> tuple[AutoToken
 
     return tokenizer, model, device
 
-def load_fine_tuned_model(model_name="google-bert/bert-base-cased", model_path="fine_tuned_bert.pth"):
+def load_fine_tuned_model(model_name="google-bert/bert-base-cased", model_path="model_weights/fine_tuned_bert.pth"):
 
     """
     Loads a fine-tuned model from given path. 

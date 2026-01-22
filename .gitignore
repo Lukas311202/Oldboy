@@ -1,4 +1,3 @@
-fine_tuned_bert.pth
-fine_tuned_bert_with_ex.pth
+model_weights/
 __pycache__/
 checkpoint.pth
