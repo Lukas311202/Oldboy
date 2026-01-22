@@ -4,9 +4,9 @@ import pandas as pd
 import numpy as np
 import os
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = "plots/"#os.path.dirname(os.path.abspath(__file__))
 
-def plot_confusion_matrix(cm, class_names, normalize=False):
+def plot_confusion_matrix(cm, class_names, subdir, normalize=False):
     """
     Plots a confusion matrix heatmap.
 
@@ -31,11 +31,11 @@ def plot_confusion_matrix(cm, class_names, normalize=False):
     plt.ylabel("True Label")
     plt.title("Confusion Matrix" + (" (Normalized)" if normalize else ""))
     plt.tight_layout()
-    plt.savefig(os.path.join(BASE_DIR, "confusion_matrix.png"), dpi=300)
+    plt.savefig(os.path.join(BASE_DIR, subdir, "confusion_matrix.png"), dpi=300)
     plt.close()
 
 
-def plot_classification_report(report_dict, class_names):
+def plot_classification_report(report_dict, class_names, subdir):
     """
     Plots precision, recall and f1-score per class.
 
@@ -66,11 +66,11 @@ def plot_classification_report(report_dict, class_names):
     plt.legend(title="Class")
     plt.grid(axis="y", linestyle="--", alpha=0.6)
     plt.tight_layout()
-    plt.savefig(os.path.join(BASE_DIR, "classification_report.png"), dpi=300)
+    plt.savefig(os.path.join(BASE_DIR, subdir, "classification_report.png"), dpi=300)
     plt.close()
 
 
-def plot_overall_metrics(report_dict):
+def plot_overall_metrics(report_dict, subdir):
     """
     Plots overall model performance metrics.
     """
@@ -96,11 +96,11 @@ def plot_overall_metrics(report_dict):
     plt.title("Overall Model Performance")
     plt.grid(axis="y", linestyle="--", alpha=0.6)
     plt.tight_layout()
-    plt.savefig(os.path.join(BASE_DIR, "overall_metrics.png"), dpi=300)
+    plt.savefig(os.path.join(BASE_DIR, subdir, "overall_metrics.png"), dpi=300)
     plt.close()
 
 
-def plot_overall_metrics_comparison(report_a, report_b, label_a="Baseline", label_b="With Explanation"):
+def plot_overall_metrics_comparison(report_a, report_b, subdir, label_a="Baseline", label_b="With Explanation"):
     """
     Compares overall metrics between two models.
     """
@@ -133,11 +133,11 @@ def plot_overall_metrics_comparison(report_a, report_b, label_a="Baseline", labe
     plt.legend()
     plt.grid(axis="y", linestyle="--", alpha=0.6)
     plt.tight_layout()
-    plt.savefig(os.path.join(BASE_DIR, "overall_metrics_comparison.png"), dpi=300)
+    plt.savefig(os.path.join(BASE_DIR, subdir, "overall_metrics_comparison.png"), dpi=300)
     plt.close()
 
 
-def plot_classification_report_comparison(report_a, report_b, class_names, label_a="Baseline", label_b="With Explanation"):
+def plot_classification_report_comparison(report_a, report_b, class_names, subdir, label_a="Baseline", label_b="With Explanation"):
     """
     Compares per-class precision, recall, and F1-score.
     """
@@ -164,11 +164,11 @@ def plot_classification_report_comparison(report_a, report_b, class_names, label
         plt.legend()
         plt.grid(axis="y", linestyle="--", alpha=0.6)
         plt.tight_layout()
-        plt.savefig(os.path.join(BASE_DIR, "classification_report_comparison.png"), dpi=300)
+        plt.savefig(os.path.join(BASE_DIR, subdir, "classification_report_comparison.png"), dpi=300)
         plt.close()
 
 
-def plot_confusion_matrix_difference(cm_a, cm_b, class_names):
+def plot_confusion_matrix_difference(cm_a, cm_b, class_names, subdir):
     """
     Plots the difference between two normalized confusion matrices.
     Positive values mean improvement in model B.
@@ -192,5 +192,5 @@ def plot_confusion_matrix_difference(cm_a, cm_b, class_names):
     plt.ylabel("True Label")
     plt.title("Confusion Matrix Difference (Explanation − Baseline)")
     plt.tight_layout()
-    plt.savefig(os.path.join(BASE_DIR, "confusion_matrix_difference.png"), dpi=300)
+    plt.savefig(os.path.join(BASE_DIR, subdir, "confusion_matrix_difference.png"), dpi=300)
     plt.close()

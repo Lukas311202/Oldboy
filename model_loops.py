@@ -17,7 +17,7 @@ from transformers import BertTokenizer, BertForSequenceClassification
 import pandas as pd
 import os
 
-def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tuned_model_path="fine_tuned_bert.pth", 
+def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tuned_model_path="model_weights/test_fine_tuned_bert_with_ex.pth", 
                    epochs=3, batch_size=16, learning_rate=2e-5, bullshit_words=None):
     """
     Fine-tunes the BERT model on the IMDB dataset. Saves the output model to the specified path.
@@ -89,9 +89,7 @@ def fine_tune_with_explanaitions(train_df,
         String: path to the (final) fine tunes weights
     """
     
-    checkpoint_path = "checkpoint.pth"
-    
-    
+    checkpoint_path = "model_weights/checkpoint.pth"
     
     tokenizer, model, device = load_base_model(base_model)
     optimizer = AdamW(model.parameters(), lr=learning_rate)
@@ -308,11 +306,11 @@ if __name__ == "__main__":
     ]
     
     fine_tune_with_explanaitions(train_df, 
-                                 n_steps=1, 
-                                 batch_size=8, 
-                                 epochs=2,
+                                 n_steps=500, 
+                                 batch_size=80, 
+                                 epochs=3,
                                  bullshit_words=bullshit_words,
-                                 checkpoint_every_n_step=10,
+                                 checkpoint_every_n_step=5,
                                  lam=1.0,
-                                 fine_tuned_model_path="test_fine_tuned_bert_with_ex.pth"
+                                 fine_tuned_model_path="model_weights/test_fine_tuned_bert_with_ex.pth"
                                 )
