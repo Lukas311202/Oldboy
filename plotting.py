@@ -92,3 +92,96 @@ def plot_overall_metrics(report_dict):
     plt.grid(axis="y", linestyle="--", alpha=0.6)
     plt.tight_layout()
     plt.show()
+
+
+def plot_overall_metrics_comparison(report_a, report_b, label_a="Baseline", label_b="With Explanation"):
+    """
+    Compares overall metrics between two models.
+    """
+    metrics = ["accuracy", "macro avg", "weighted avg"]
+    metric_names = ["Accuracy", "Macro F1", "Weighted F1"]
+
+    values_a = [
+        report_a["accuracy"],
+        report_a["macro avg"]["f1-score"],
+        report_a["weighted avg"]["f1-score"]
+    ]
+
+    values_b = [
+        report_b["accuracy"],
+        report_b["macro avg"]["f1-score"],
+        report_b["weighted avg"]["f1-score"]
+    ]
+
+    x = np.arange(len(metric_names))
+    width = 0.35
+
+    plt.figure(figsize=(8,5))
+    plt.bar(x - width/2, values_a, width, label=label_a)
+    plt.bar(x + width/2, values_b, width, label=label_b)
+
+    plt.xticks(x, metric_names)
+    plt.ylim(0, 1)
+    plt.ylabel("Score")
+    plt.title("Overall Metrics Comparison")
+    plt.legend()
+    plt.grid(axis="y", linestyle="--", alpha=0.6)
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_classification_report_comparison(report_a, report_b, class_names, label_a="Baseline", label_b="With Explanation"):
+    """
+    Compares per-class precision, recall, and F1-score.
+    """
+    df_a = pd.DataFrame(report_a).transpose()
+    df_b = pd.DataFrame(report_b).transpose()
+
+    metrics = ["precision", "recall", "f1-score"]
+
+    for metric in metrics:
+        values_a = df_a.loc[class_names][metric]
+        values_b = df_b.loc[class_names][metric]
+
+        x = np.arange(len(class_names))
+        width = 0.35
+
+        plt.figure(figsize=(7,4))
+        plt.bar(x - width/2, values_a, width, label=label_a)
+        plt.bar(x + width/2, values_b, width, label=label_b)
+
+        plt.xticks(x, class_names)
+        plt.ylim(0, 1)
+        plt.ylabel(metric.capitalize())
+        plt.title(f"{metric.capitalize()} Comparison per Class")
+        plt.legend()
+        plt.grid(axis="y", linestyle="--", alpha=0.6)
+        plt.tight_layout()
+        plt.show()
+
+
+def plot_confusion_matrix_difference(cm_a, cm_b, class_names):
+    """
+    Plots the difference between two normalized confusion matrices.
+    Positive values mean improvement in model B.
+    """
+    cm_a = cm_a.astype("float") / cm_a.sum(axis=1, keepdims=True)
+    cm_b = cm_b.astype("float") / cm_b.sum(axis=1, keepdims=True)
+
+    diff = cm_b - cm_a
+
+    plt.figure(figsize=(6,5))
+    sns.heatmap(
+        diff,
+        annot=True,
+        fmt=".2f",
+        cmap="coolwarm",
+        center=0,
+        xticklabels=class_names,
+        yticklabels=class_names
+    )
+    plt.xlabel("Predicted Label")
+    plt.ylabel("True Label")
+    plt.title("Confusion Matrix Difference (Explanation − Baseline)")
+    plt.tight_layout()
+    plt.show()
