@@ -4,6 +4,8 @@ from torch.optim import AdamW
 import torch
 from utils import create_train_test_split, load_fine_tuned_model, load_fine_tuned_model
 from plotting import (
+    comparison_plots,
+    multiple_plots,
     plot_confusion_matrix,
     plot_classification_report,
     plot_overall_metrics,
@@ -35,31 +37,8 @@ if __name__ == "__main__":
     # Evaluate
     classification_report, confusion_matrix = model_evaluation(model=fine_tuned_model, test_df=test_df, tokenizer=tokenizer, device=device)
 
-    CLASS_NAMES = ["negative", "positive"]
-    subdir = "baseline"
-    # Confusion matrix
-    plot_confusion_matrix(
-        confusion_matrix, 
-        CLASS_NAMES,
-        subdir=subdir
-    )
-
-    plot_confusion_matrix(
-        confusion_matrix, 
-        CLASS_NAMES, 
-        normalize=True,
-        subdir=subdir
-    )
-
-    # Classification report metrics
-    plot_classification_report(
-        classification_report, 
-        CLASS_NAMES,
-        subdir=subdir
-    )
-
-    # Overall performance metrics
-    plot_overall_metrics(classification_report, subdir=subdir)
+    # Plot the baseline results and save them in "plots/baseline/" directory
+    multiple_plots(subdir="baseline", cm=confusion_matrix, classification_report=classification_report)
 
     # Reduce dataset for attribution calculations
     reduced_df, _ = train_test_split(
@@ -88,16 +67,16 @@ if __name__ == "__main__":
     ]
 
     # Fine-tune again with explanation-based loss
-    """ex_model_path = fine_tune_with_explanaitions(train_df, 
-                                 n_steps=500, 
-                                 batch_size=80, 
-                                 epochs=3,
-                                 bullshit_words=bullshit_words,
-                                 checkpoint_every_n_step=5,
-                                 lam=1.0,
-                                 fine_tuned_model_path="model_weights/fine_tuned_bert_with_ex.pth"
-                                )
-    """
+    # ex_model_path = fine_tune_with_explanaitions(train_df, 
+    #                              n_steps=500, 
+    #                              batch_size=80, 
+    #                              epochs=3,
+    #                              bullshit_words=bullshit_words,
+    #                              checkpoint_every_n_step=5,
+    #                              lam=1.0,
+    #                              fine_tuned_model_path="model_weights/fine_tuned_bert_with_ex.pth"
+    #                             )
+    
 
     ex_model_path = "model_weights/fine_tuned_bert_with_ex.pth"
 
@@ -115,57 +94,14 @@ if __name__ == "__main__":
         device=device
     )
 
-    subdir = "with_explanations"
-
-    # Confusion matrix
-    plot_confusion_matrix(
-        ex_confusion_matrix, 
-        CLASS_NAMES,
-        subdir=subdir
-    )
-
-    plot_confusion_matrix(
-        ex_confusion_matrix, 
-        CLASS_NAMES, 
-        subdir=subdir,
-        normalize=True
-    )
-
-    # Classification report metrics
-    plot_classification_report(
-        ex_classification_report, 
-        CLASS_NAMES,
-        subdir=subdir
-    )
-
-    # Overall performance metrics
-    plot_overall_metrics(ex_classification_report, subdir=subdir)
-
-    subdir = "comparisons"
-
-    plot_overall_metrics_comparison(
-        classification_report,
-        ex_classification_report,
-        label_a="Baseline",
-        label_b="With Explanation",
-        subdir=subdir
-    )
-
-    plot_classification_report_comparison(
-        classification_report,
-        ex_classification_report,
-        CLASS_NAMES,
-        label_a="Baseline",
-        label_b="With Explanation",
-        subdir=subdir
-    )
-
-    plot_confusion_matrix_difference(
-        confusion_matrix,
-        ex_confusion_matrix,
-        CLASS_NAMES,
-        subdir=subdir
-    )
+    # Plot the results with explanations and save them in "plots/with_explanations/" directory
+    multiple_plots(subdir="with_explanations", cm=ex_confusion_matrix, classification_report=ex_classification_report)
+ 
+    # Comparison plots between baseline and explanation-based model
+    comparison_plots(subdir="comparison_baseline_explanation", cm_a=confusion_matrix, 
+                     cm_b=ex_confusion_matrix, report_a=classification_report, 
+                     report_b=ex_classification_report, label_a="Baseline", 
+                     label_b="With Explanation")
 
     # Load model with masking out bullshit words fine-tuning
     #mask_path = fine_tune_loop(train_df=train_df, bullshit_words=bullshit_words, fine_tuned_model_path="model_weights/test_fine_tuned_bert_masking.pth")
@@ -175,30 +111,7 @@ if __name__ == "__main__":
 
     class_report_masked, confus_matrix_masked = model_evaluation(model=model, test_df=test_df, tokenizer=tokenizer, device=device)
 
-    subdir = "masking"
+    # Plot the results with masking and save them in "plots/masking/" directory
+    multiple_plots(subdir="masking", cm=confus_matrix_masked, classification_report=class_report_masked)
 
-    # Confusion matrix
-    plot_confusion_matrix(
-        confus_matrix_masked, 
-        CLASS_NAMES,
-        subdir=subdir
-    )
-
-    plot_confusion_matrix(
-        confus_matrix_masked, 
-        CLASS_NAMES, 
-        subdir=subdir,
-        normalize=True
-    )
-
-    # Classification report metrics
-    plot_classification_report(
-        class_report_masked, 
-        CLASS_NAMES,
-        subdir=subdir
-    )
-
-    # Overall performance metrics
-    plot_overall_metrics(class_report_masked, subdir=subdir)
-    
 

@@ -4,15 +4,15 @@ import pandas as pd
 import numpy as np
 import os
 
-BASE_DIR = "plots/"#os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = "plots/"
+CLASS_NAMES = ["negative", "positive"]
 
-def plot_confusion_matrix(cm, class_names, subdir, normalize=False):
+def plot_confusion_matrix(cm, subdir, normalize=False):
     """
     Plots a confusion matrix heatmap.
 
     Args:
         cm (np.ndarray): Confusion matrix
-        class_names (list): List of class labels
         normalize (bool): Whether to normalize the matrix
     """
     if normalize:
@@ -24,18 +24,19 @@ def plot_confusion_matrix(cm, class_names, subdir, normalize=False):
         annot=True,
         fmt=".2f" if normalize else "d",
         cmap="Blues",
-        xticklabels=class_names,
-        yticklabels=class_names
+        xticklabels=CLASS_NAMES,
+        yticklabels=CLASS_NAMES
     )
     plt.xlabel("Predicted Label")
     plt.ylabel("True Label")
     plt.title("Confusion Matrix" + (" (Normalized)" if normalize else ""))
     plt.tight_layout()
-    plt.savefig(os.path.join(BASE_DIR, subdir, "confusion_matrix.png"), dpi=300)
+    title = "confusion_matrix_normalized.png" if normalize else "confusion_matrix.png"
+    plt.savefig(os.path.join(BASE_DIR, subdir, title), dpi=300)
     plt.close()
 
 
-def plot_classification_report(report_dict, class_names, subdir):
+def plot_classification_report(report_dict, subdir):
     """
     Plots precision, recall and f1-score per class.
 
@@ -44,7 +45,7 @@ def plot_classification_report(report_dict, class_names, subdir):
         class_names (list): Class labels
     """
     df = pd.DataFrame(report_dict).transpose()
-    metrics_df = df.loc[class_names][["precision", "recall", "f1-score"]]
+    metrics_df = df.loc[CLASS_NAMES][["precision", "recall", "f1-score"]]
 
     combined = metrics_df.T  
 
@@ -53,7 +54,7 @@ def plot_classification_report(report_dict, class_names, subdir):
     bar_width = 0.35
     x = np.arange(len(combined.index)) 
 
-    for i, cls in enumerate(class_names):
+    for i, cls in enumerate(CLASS_NAMES):
         plt.bar(x + i*bar_width, combined[cls], width=bar_width, label=cls)
 
     ymin = max(0, combined.min().min() - 0.02)
@@ -190,7 +191,70 @@ def plot_confusion_matrix_difference(cm_a, cm_b, class_names, subdir):
     )
     plt.xlabel("Predicted Label")
     plt.ylabel("True Label")
-    plt.title("Confusion Matrix Difference (Explanation − Baseline)")
+    plt.title("Confusion Matrix Difference (Explanation - Baseline)")
     plt.tight_layout()
     plt.savefig(os.path.join(BASE_DIR, subdir, "confusion_matrix_difference.png"), dpi=300)
     plt.close()
+
+def multiple_plots(subdir, cm, classification_report, conf_mat=True, conf_mat_norm=True, class_report=True, overall_metrics=True):
+    """
+    Executes multiple plotting functions and saves plots in specified subdirectory.
+    On default all plot types are generated.
+
+    :param subdir: Subdirectory within BASE_DIR to save plots.
+    :param cm: Confusion matrix (np.ndarray).
+    :param classification_report: Classification report dictionary.
+    :param conf_mat: Whether to plot confusion matrix.
+    :param conf_mat_norm: Whether to plot normalized confusion matrix.
+    :param class_report: Whether to plot classification report.
+    :param overall_metrics: Whether to plot overall metrics.
+    """
+
+    path = os.path.join(BASE_DIR, subdir)
+    os.makedirs(path, exist_ok=True)
+
+    if conf_mat and cm is not None:
+        plot_confusion_matrix(cm, subdir, normalize=False)
+    
+    if conf_mat_norm and cm is not None:
+        plot_confusion_matrix(cm, subdir, normalize=True)
+        
+    if class_report and classification_report is not None:
+        plot_classification_report(classification_report, subdir)
+        
+    if overall_metrics and classification_report is not None:
+        plot_overall_metrics(classification_report, subdir)
+
+    print(f"All plots saved into '{path}' directory.")
+
+def comparison_plots(subdir, cm_a, cm_b, report_a, report_b, label_a, label_b, overall_metrics=True, class_report=True, conf_mat_diff=True):
+    """
+    Executes multiple comparison plotting functions and saves plots in specified subdirectory.
+    On default all plot types are generated.
+
+
+    :param subdir: Subdirectory within BASE_DIR to save plots.
+    :param cm_a: Confusion matrix of model A (np.ndarray).
+    :param cm_b: Confusion matrix of model B (np.ndarray).
+    :param report_a: Classification report dictionary of model A.
+    :param report_b: Classification report dictionary of model B.
+    :param label_a: Label for model A.
+    :param label_b: Label for model B.
+    :param overall_metrics: Whether to plot overall metrics comparison.
+    :param class_report: Whether to plot classification report comparison.
+    :param conf_mat_diff: Whether to plot confusion matrix difference.
+    """
+
+    path = os.path.join(BASE_DIR, subdir)
+    os.makedirs(path, exist_ok=True)
+
+    if overall_metrics:
+        plot_overall_metrics_comparison(report_a, report_b, subdir, label_a, label_b)
+
+    if class_report:
+        plot_classification_report_comparison(report_a, report_b, CLASS_NAMES, subdir, label_a, label_b)
+
+    if conf_mat_diff:
+        plot_confusion_matrix_difference(cm_a, cm_b, CLASS_NAMES, subdir)
+
+    print(f"All comparison plots saved into '{path}' directory.")
