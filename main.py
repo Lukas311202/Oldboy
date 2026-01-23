@@ -6,12 +6,6 @@ from utils import create_train_test_split, load_fine_tuned_model, load_fine_tune
 from plotting import (
     comparison_plots,
     multiple_plots,
-    plot_confusion_matrix,
-    plot_classification_report,
-    plot_overall_metrics,
-    plot_overall_metrics_comparison,
-    plot_classification_report_comparison,
-    plot_confusion_matrix_difference
 )
 from sklearn.model_selection import train_test_split
 
@@ -51,7 +45,7 @@ if __name__ == "__main__":
     # Calculate word attributions
     #attribution_values_json, final_avg_delta = run_attributions(n_steps=30, save_every=15, internal_batch_size=80, tokenizer=tokenizer, model=fine_tuned_model, train_df=reduced_df) 
     # NOTE: IN REPORT SCHREIBEN WARUM WIR N_STEPS GENOMMEN HABEN (Original paper zitieren) Mit delta value (delta sollte < 0.05 sein laut paper um gute attributionen zu haben. Das sind 20 bis 300 steps)
-    attribution_values_json = "global_word_attributions.json"
+    attribution_values_json = "attributions_and_logits/global_word_attributions.json"
 
     # Get most meaningful words
     most_meaningful_words, _ = get_most_meaningful_words(attribution_values_json, top_n=200, absolute=True, threshold=100)

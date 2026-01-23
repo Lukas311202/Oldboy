@@ -135,7 +135,7 @@ def fine_tune_with_explanaitions(train_df,
     torch.save(model.state_dict(), fine_tuned_model_path)
     return fine_tuned_model_path
 
-def run_attributions(n_steps, save_every, internal_batch_size, tokenizer, model, train_df, output_json="global_word_attributions.json", review_column="review"):
+def run_attributions(n_steps, save_every, internal_batch_size, tokenizer, model, train_df, output_json="attributions_and_logits/global_word_attributions.json", review_column="review"):
     """
     Calculates word attributions for all reviews in the provided dataframe using the fine-tuned model.
     Saves complete progress with all neccessary data to continue at a later point.
@@ -294,13 +294,3 @@ def extract_logits(train_df, output_json="review_logits.json", review_column="re
 
     with open(output_json, "w") as f:
         json.dump(logits_results, f, indent=4)
-
-if __name__ == "__main__":
-    train_df, test_df = create_train_test_split()
-    # extract_logits(pth_model_path="fine_tuned_bert.pth", bert_base_name="google-bert/bert-base-cased", train_df=train_df)
-    bullshit_words = [
-        "Zero", "Rather", "turkey", "sheer", "hi", "episodes", "episode", "today", "flu",
-        "summary", "sports", "Kid", "block", "Sinatra", "born", "Anyone", "entry", "Although", "Bourne",
-        "app", "DVD", "short", "animated", "Yet", "Many", "Not", "scenery", "beginning", "Day", "bit",
-        "adult", "describe", "true", "personally", "ready", "match"
-    ]

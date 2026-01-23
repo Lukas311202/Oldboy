@@ -450,7 +450,7 @@ def get_most_meaningful_words(attribution_values_json, top_n=10, absolute=True, 
         return sorted_keys_positive[:top_n], sorted_keys_negative[:top_n]
     
 
-def calculate_relative_error(logits_json_path="review_logits.json", stats_json_path="global_word_attributions_stats.json"):
+def calculate_relative_error(logits_json_path="review_logits.json", stats_json_path="attributions_and_logits/global_word_attributions_stats.json"):
     """
     Calculates the prozentual error between the IG-procedure in relation to hte models output logits.
 
@@ -485,10 +485,3 @@ def calculate_relative_error(logits_json_path="review_logits.json", stats_json_p
     relative_error = raw_avg_delta / avg_logit_magnitude
 
     return relative_error
-
-
-if __name__ == '__main__':
-    # training_with_explanaition_test_run()
-    training_with_explanaition_batched_test_run()
-    # relative_error = calculate_relative_error()
-    # print(relative_error)
