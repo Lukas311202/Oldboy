@@ -9,7 +9,7 @@ import os
 from tqdm import tqdm
 import re
 
-def load_base_model(model_name="google-bert/bert-base-cased") -> tuple[AutoTokenizer, torch.nn.Module, any]:
+def load_base_model(model_name="google-bert/bert-base-cased"):
     """
     Load a pre-trained model and tokenizer for binary text classification.
     
@@ -37,7 +37,6 @@ def load_base_model(model_name="google-bert/bert-base-cased") -> tuple[AutoToken
     return tokenizer, model, device
 
 def load_fine_tuned_model(model_name="google-bert/bert-base-cased", model_path="model_weights/fine_tuned_bert.pth"):
-
     """
     Loads a fine-tuned model from given path. 
 
@@ -57,13 +56,12 @@ def load_fine_tuned_model(model_name="google-bert/bert-base-cased", model_path="
     return tokenizer, model, device
 
 
-def create_train_test_split(data="imdb_dataset.csv", text_column="review", label_column="sentiment", 
+def create_train_test_split(data="imdb_dataset.csv", label_column="sentiment", 
                       test_size=0.2, seed=42, stratify=True):
     """
     Splits the dataset into training and testing sets.
 
     :param data: Path to the dataset file.
-    :param text_column: Name of the column containing the text data.
     :param label_column: Name of the column containing the label data.
     :param test_size: Proportion of the dataset to include in the test split.
     :param random_seed: Random seed for reproducibility.
@@ -89,6 +87,12 @@ def create_train_test_split(data="imdb_dataset.csv", text_column="review", label
 def mask_bullshit_words(text: str, bullshit_words: list, mask_token: str):
     """
     Replaces bullshit words in text with [MASK], word-boundary aware.
+
+    :param text: Original text.
+    :param bullshit_words: List of words to mask.
+    :param mask_token: Token to replace bullshit words with.
+
+    :return: Masked text.
     """
     for word in bullshit_words:
         pattern = r"\b" + re.escape(word) + r"\b"
@@ -132,6 +136,17 @@ def train_one_step(model, data_load, optimizer, device):
     return avg_loss
 
 def create_data_loader(df, tokenizer, batch_size=16, max_length=128, bullshit_words=None):
+    """
+    Creates a DataLoader from the given DataFrame.
+
+    :param df: DataFrame containing the data.
+    :param tokenizer: Tokenizer to use for encoding the text.
+    :param batch_size: Batch size for the DataLoader.
+    :param max_length: Maximum sequence length for tokenization.
+    :param bullshit_words: List of words to mask in the text.
+
+    :return: DataLoader
+    """
 
     texts = df['review'].tolist()
 

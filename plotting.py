@@ -11,9 +11,9 @@ def plot_confusion_matrix(cm, subdir, normalize=False):
     """
     Plots a confusion matrix heatmap.
 
-    Args:
-        cm (np.ndarray): Confusion matrix
-        normalize (bool): Whether to normalize the matrix
+    :param cm: Confusion matrix
+    :param subdir: Subdirectory within BASE_DIR to save the plot.
+    :param normalize: Whether to normalize the confusion matrix
     """
     if normalize:
         cm = cm.astype("float") / cm.sum(axis=1, keepdims=True)
@@ -40,9 +40,8 @@ def plot_classification_report(report_dict, subdir):
     """
     Plots precision, recall and f1-score per class.
 
-    Args:
-        report_dict (dict): classification_report(output_dict=True)
-        class_names (list): Class labels
+    :param report_dict: classification_report(output_dict=True)
+    :param subdir: Subdirectory within BASE_DIR to save the plot.
     """
     df = pd.DataFrame(report_dict).transpose()
     metrics_df = df.loc[CLASS_NAMES][["precision", "recall", "f1-score"]]
@@ -74,6 +73,9 @@ def plot_classification_report(report_dict, subdir):
 def plot_overall_metrics(report_dict, subdir):
     """
     Plots overall model performance metrics.
+
+    :param report_dict: classification_report(output_dict=True)
+    :param subdir: Subdirectory within BASE_DIR to save the plot.
     """
     overall_metrics = {
         "Accuracy": report_dict["accuracy"],
@@ -104,8 +106,14 @@ def plot_overall_metrics(report_dict, subdir):
 def plot_overall_metrics_comparison(report_a, report_b, subdir, label_a="Baseline", label_b="With Explanation"):
     """
     Compares overall metrics between two models.
+
+    :param report_a: classification_report(output_dict=True) for model A
+    :param report_b: classification_report(output_dict=True) for model B
+    :param subdir: Subdirectory within BASE_DIR to save the plot.
+    :param label_a: Label for model A
+    :param label_b: Label for model B
     """
-    metrics = ["accuracy", "macro avg", "weighted avg"]
+
     metric_names = ["Accuracy", "Macro F1", "Weighted F1"]
 
     values_a = [
@@ -141,6 +149,13 @@ def plot_overall_metrics_comparison(report_a, report_b, subdir, label_a="Baselin
 def plot_classification_report_comparison(report_a, report_b, class_names, subdir, label_a="Baseline", label_b="With Explanation"):
     """
     Compares per-class precision, recall, and F1-score.
+
+    :param report_a: classification_report(output_dict=True) for model A
+    :param report_b: classification_report(output_dict=True) for model B
+    :param class_names: List of class labels
+    :param subdir: Subdirectory within BASE_DIR to save the plot.
+    :param label_a: Label for model A
+    :param label_b: Label for model B
     """
     df_a = pd.DataFrame(report_a).transpose()
     df_b = pd.DataFrame(report_b).transpose()
@@ -173,6 +188,11 @@ def plot_confusion_matrix_difference(cm_a, cm_b, class_names, subdir):
     """
     Plots the difference between two normalized confusion matrices.
     Positive values mean improvement in model B.
+
+    :param cm_a: Confusion matrix of model A
+    :param cm_b: Confusion matrix of model B
+    :param class_names: List of class labels
+    :param subdir: Subdirectory within BASE_DIR to save the plot.
     """
     cm_a = cm_a.astype("float") / cm_a.sum(axis=1, keepdims=True)
     cm_b = cm_b.astype("float") / cm_b.sum(axis=1, keepdims=True)

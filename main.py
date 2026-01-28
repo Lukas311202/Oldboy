@@ -1,5 +1,5 @@
 from analysis import model_evaluation, get_most_meaningful_words
-from model_loops import fine_tune_loop, run_attributions, fine_tune_with_explanaitions
+from model_loops import fine_tune_loop, run_attributions, fine_tune_with_explanations
 from torch.optim import AdamW 
 import torch
 from utils import create_train_test_split, load_fine_tuned_model, load_fine_tuned_model
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     ]
 
     # Fine-tune again with explanation-based loss
-    # ex_model_path = fine_tune_with_explanaitions(train_df, 
+    # ex_model_path = fine_tune_with_explanations(train_df, 
     #                              n_steps=500, 
     #                              batch_size=80, 
     #                              epochs=3,
