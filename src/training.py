@@ -1,4 +1,4 @@
-from utils import (
+from .utils import (
     checkpoint_verification,
     create_data_loader,
     load_base_model,
@@ -8,11 +8,11 @@ from utils import (
 import torch
 from torch.optim import AdamW
 from tqdm import tqdm
-from analysis import get_word_attribution, get_word_attribution_for_training, loss_fn
+from .analysis import get_word_attribution, get_word_attribution_for_training, loss_fn
 import json
 import os
 
-def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tuned_model_path="model_weights/test_fine_tuned_bert.pth", 
+def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tuned_model_path="output/model_weights/test_fine_tuned_bert.pth", 
                    epochs=3, batch_size=16, learning_rate=2e-5, bullshit_words=None):
     """
     Fine-tunes the BERT model on the IMDB dataset. Saves the output model to the specified path.
@@ -55,7 +55,7 @@ def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tune
 
 def fine_tune_with_explanations(train_df, 
                                  base_model="google-bert/bert-base-cased", 
-                                 fine_tuned_model_path="model_weights/fine_tuned_bert_with_ex.pth", 
+                                 fine_tuned_model_path="output/model_weights/fine_tuned_bert_with_ex.pth", 
                                  epochs=3, 
                                  batch_size=16, 
                                  learning_rate=2e-5,
@@ -63,7 +63,8 @@ def fine_tune_with_explanations(train_df,
                                  explanation_loss_ratio=0.2,
                                  lam=1.0,
                                  n_steps=500,
-                                 checkpoint_every_n_step = 1
+                                 checkpoint_every_n_step = 1,
+                                 checkpoint_path="output/model_weights/checkpoint.pth"
                                 ):
     """
     Fine tunes the model, using the regular loss alongside the loss of the explanation method.
@@ -79,11 +80,10 @@ def fine_tune_with_explanations(train_df,
     :param lam: Lambda value to scale the explanation loss.
     :param n_steps: Number of steps for Integrated Gradients.
     :param checkpoint_every_n_step: Creates a checkpoint every n'th batch computed in the second learning phase.
+    :param checkpoint_path: Path to save the checkpoint.
 
     :return: Path to the fine-tuned model.
     """
-    
-    checkpoint_path = "model_weights/checkpoint.pth"
     
     tokenizer, model, device = load_base_model(base_model)
     optimizer = AdamW(model.parameters(), lr=learning_rate)
@@ -136,7 +136,7 @@ def run_attributions(n_steps,
                      tokenizer, 
                      model, 
                      train_df, 
-                     output_json="attributions_and_logits/global_word_attributions.json", 
+                     output_json="output/logs/global_word_attributions.json", 
                      review_column="review"):
     """
     Calculates word attributions for all reviews in the provided dataframe using the fine-tuned model.
@@ -259,7 +259,7 @@ def train_with_explanation_one_step(
         n_steps = 500,
         batch_size=16,
         checkpoint_every_n_step=1,
-        checkpoint_path="model_weights/checkpoint.pth",
+        checkpoint_path="output/model_weights/checkpoint.pth",
         epoch=1
     ):
     """

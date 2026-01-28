@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import os
 
-BASE_DIR = "plots/"
+BASE_DIR = "output/plots/"
 CLASS_NAMES = ["negative", "positive"]
 
 def plot_confusion_matrix(cm, subdir, normalize=False):

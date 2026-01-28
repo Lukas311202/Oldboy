@@ -1,6 +1,6 @@
 import torch
 from captum.attr import LayerIntegratedGradients
-from utils import create_data_loader
+from .utils import create_data_loader
 from sklearn.metrics import classification_report, confusion_matrix
 import json
 import numpy as np
@@ -213,7 +213,7 @@ def get_most_meaningful_words(attribution_values_json, top_n=10, absolute=True, 
         return sorted_keys_positive[:top_n], sorted_keys_negative[:top_n]
     
 
-def calculate_relative_error(logits_json_path="review_logits.json", stats_json_path="attributions_and_logits/global_word_attributions_stats.json"):
+def calculate_relative_error(logits_json_path="output/logs/review_logits.json", stats_json_path="output/logs/global_word_attributions_stats.json"):
     """
     Calculates the relative error between the IG-procedure in relation to the models output logits.
 
@@ -248,97 +248,3 @@ def calculate_relative_error(logits_json_path="review_logits.json", stats_json_p
     relative_error = raw_avg_delta / avg_logit_magnitude
 
     return relative_error
-
-"""
-def training_with_explanation_batched_test_run():
-    
-    # Method to test, training the model on a single example review, where we also use the IG to adjust the training of the model.
-    # Just for testing purposes.
-    
-    
-    # Load the model
-    tokenizer, model, _ = load_base_model()
-    
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.load_state_dict(torch.load("fine_tuned_bert.pth", map_location=device))
-    model.to(device)
-
-    bullshit_words = ["superb", "fantastic", "best"]
-    
-    
-    reviews, _ = create_train_test_split()
-    data_loader = create_data_loader(reviews, tokenizer, 8)
-    # Load the reviews for training
-    
-    optimizer = AdamW(model.parameters(), lr=2e-5)
-    model.train()
-    
-    for batch in tqdm(data_loader):
-        input_ids = batch[0].to(device)
-        attention_mask = batch[1].to(device)
-        label = batch[2].to(device)
-        
-        output = model(input_ids=input_ids, attention_mask=attention_mask, labels=label)
-        reason, delta  = get_word_attribution(500, batch, model, tokenizer)
-        
-        loss = loss_fn(output, label, reason, bullshit_words)
-        loss.backward()
-        optimizer.step()
-
-def training_with_explanation_test_run():
-    
-    #Method to test, training the model on a single example review, where we also use the IG to adjust the training of the model.
-    #Only for testing purposes.
-    
-    
-    #load the model
-    tokenizer, model, _ = load_base_model()
-    
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.load_state_dict(torch.load("fine_tuned_bert.pth", map_location=device))
-    model.to(device)
-
-    bullshit_words = ["superb", "fantastic", "best"]
-    
-    #load the reviews for training
-    reviews = [
-        "This movie was absolutely fantastic and the acting was superb.",
-        "This was the best movie in the world"
-    ]
-    
-    optimizer = AdamW(model.parameters(), lr=2e-5)
-    model.train()
-    
-    def print_sorted_token_ranking(feature_attribution : dict):
-            asc = {k: v for k, v in reversed(sorted(feature_attribution.items(), key=lambda item: item[1]))}
-            for k, v in asc.items():
-                print(f"token: {k} = {v}")    
-    
-    for i, review in enumerate(reviews):
-        print(f"\nreview {i}:\n")
-        
-        optimizer.zero_grad()
-        
-        #get the loss and outcome of the model
-        inputs = tokenizer(review, return_tensors='pt', truncation=True, padding=True).to(device)
-        input_ids, attention_mask = inputs.input_ids, inputs.attention_mask
-        label = torch.tensor([0]).to(device)
-        output = model(input_ids=input_ids, attention_mask=attention_mask, labels=label)
-        
-        logits = output.logits
-        prediction_id = torch.argmax(logits, dim=-1).item()
-        label = model.config.id2label[prediction_id]
-        
-        #compute word_score
-        word_scores = get_word_attribution(5, review, model, tokenizer)
-        word_scores.requires_grad()
-        
-        #compute final loss with bullshit words
-        loss = output.loss
-        loss = loss_fn(output, word_scores, bullshit_words)
-        loss.backward()
-        optimizer.step()
-        
-        
-        print_sorted_token_ranking(word_scores)
-"""

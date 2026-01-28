@@ -36,7 +36,7 @@ def load_base_model(model_name="google-bert/bert-base-cased"):
 
     return tokenizer, model, device
 
-def load_fine_tuned_model(model_name="google-bert/bert-base-cased", model_path="model_weights/fine_tuned_bert.pth"):
+def load_fine_tuned_model(model_name="google-bert/bert-base-cased", model_path="output/model_weights/fine_tuned_bert.pth"):
     """
     Loads a fine-tuned model from given path. 
 
@@ -56,7 +56,7 @@ def load_fine_tuned_model(model_name="google-bert/bert-base-cased", model_path="
     return tokenizer, model, device
 
 
-def create_train_test_split(data="imdb_dataset.csv", label_column="sentiment", 
+def create_train_test_split(data="data/imdb_dataset.csv", label_column="sentiment", 
                       test_size=0.2, seed=42, stratify=True):
     """
     Splits the dataset into training and testing sets.
