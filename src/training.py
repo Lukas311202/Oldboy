@@ -12,8 +12,8 @@ from .analysis import get_word_attribution, get_word_attribution_for_training, l
 import json
 import os
 
-def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tuned_model_path="output/model_weights/test_fine_tuned_bert.pth", 
-                   epochs=3, batch_size=16, learning_rate=2e-5, bullshit_words=None):
+def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tuned_model_path="output/model_weights/fine_tuned_bert.pth", 
+                   epochs=3, batch_size=80, learning_rate=2e-5, bullshit_words=None):
     """
     Fine-tunes the BERT model on the IMDB dataset. Saves the output model to the specified path.
     
@@ -36,7 +36,7 @@ def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tune
         train_df,
         tokenizer,
         batch_size=batch_size,
-        bullshit_words=bullshit_words
+        bullshit_words=bullshit_words,
     )
 
     # Setup optimizer

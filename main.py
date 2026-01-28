@@ -1,8 +1,7 @@
 from src.analysis import model_evaluation, get_most_meaningful_words
 from src.training import fine_tune_loop, run_attributions, fine_tune_with_explanations
-from torch.optim import AdamW 
 import torch
-from src.utils import create_train_test_split, load_fine_tuned_model, load_fine_tuned_model
+from src.utils import create_train_test_split, load_fine_tuned_model, load_fine_tuned_model, set_seed
 from src.plotting import (
     comparison_plots,
     multiple_plots,
@@ -10,6 +9,8 @@ from src.plotting import (
 from sklearn.model_selection import train_test_split
 
 if __name__ == "__main__":
+
+    set_seed(42)
     
     print("torch version:", torch.__version__)
     if torch.cuda.is_available():
@@ -20,15 +21,20 @@ if __name__ == "__main__":
     
     MODEL_NAME = "google-bert/bert-base-cased"
     DATA_PATH = "data/imdb_dataset.csv"
+
     # Train-test split
-    train_df, test_df = create_train_test_split(data=DATA_PATH, text_column="review", label_column="sentiment",
+    train_df, test_df = create_train_test_split(data=DATA_PATH, label_column="sentiment",
                                                 test_size=0.2, seed=42, stratify=True)
+    
     # Fine-tune the model
-    #fine_tuned_model_path = fine_tune_loop(train_df=train_df, base_model=MODEL_NAME, epochs=3, batch_size=16, learning_rate=2e-5)
-    fine_tuned_model_path = "output/model_weights/fine_tuned_bert.pth"
+    fine_tuned_model_path = fine_tune_loop(train_df=train_df, base_model=MODEL_NAME, epochs=3, batch_size=16, learning_rate=2e-5)
+
+    # fine_tuned_model_path = "output/model_weights/fine_tuned_bert.pth"
+    
     # Load the fine-tuned model 
     tokenizer, fine_tuned_model, device = load_fine_tuned_model(model_name=MODEL_NAME, model_path=fine_tuned_model_path)
-    # Evaluate
+
+    # Evaluate fine-tuned model
     classification_report, confusion_matrix = model_evaluation(model=fine_tuned_model, test_df=test_df, tokenizer=tokenizer, device=device)
 
     # Plot the baseline results and save them in "output/plots/baseline/" directory
@@ -43,9 +49,7 @@ if __name__ == "__main__":
     )
 
     # Calculate word attributions
-    #attribution_values_json, final_avg_delta = run_attributions(n_steps=30, save_every=15, internal_batch_size=80, tokenizer=tokenizer, model=fine_tuned_model, train_df=reduced_df) 
-    # NOTE: IN REPORT SCHREIBEN WARUM WIR N_STEPS GENOMMEN HABEN (Original paper zitieren) Mit delta value (delta sollte < 0.05 sein laut paper um gute attributionen zu haben. Das sind 20 bis 300 steps)
-    attribution_values_json = "output/logs/global_word_attributions.json"
+    attribution_values_json, final_avg_delta = run_attributions(n_steps=30, save_every=15, internal_batch_size=80, tokenizer=tokenizer, model=fine_tuned_model, train_df=reduced_df) 
 
     # Get most meaningful words
     most_meaningful_words, _ = get_most_meaningful_words(attribution_values_json, top_n=200, absolute=True, threshold=100)
@@ -61,18 +65,15 @@ if __name__ == "__main__":
     ]
 
     # Fine-tune again with explanation-based loss
-    # ex_model_path = fine_tune_with_explanations(train_df, 
-    #                              n_steps=500, 
-    #                              batch_size=80, 
-    #                              epochs=3,
-    #                              bullshit_words=bullshit_words,
-    #                              checkpoint_every_n_step=5,
-    #                              lam=1.0,
-    #                              fine_tuned_model_path="output/model_weights/fine_tuned_bert_with_ex.pth"
-    #                             )
-    
-
-    ex_model_path = "output/model_weights/fine_tuned_bert_with_ex.pth"
+    ex_model_path = fine_tune_with_explanations(train_df, 
+                                 n_steps=500, 
+                                 batch_size=80, 
+                                 epochs=3,
+                                 bullshit_words=bullshit_words,
+                                 checkpoint_every_n_step=5,
+                                 lam=1.0,
+                                 fine_tuned_model_path="output/model_weights/fine_tuned_bert_with_ex.pth"
+                                )
 
     # Load the fine-tuned model with explanations
     _, ex_model, _ = load_fine_tuned_model(
@@ -98,11 +99,12 @@ if __name__ == "__main__":
                      label_b="With Explanation")
 
     # Load model with masking out bullshit words fine-tuning
-    #mask_path = fine_tune_loop(train_df=train_df, bullshit_words=bullshit_words, fine_tuned_model_path="output/model_weights/test_fine_tuned_bert_masking.pth")
-    mask_path = "output/model_weights/test_fine_tuned_bert_masking.pth"
+    mask_path = fine_tune_loop(train_df=train_df, bullshit_words=bullshit_words, fine_tuned_model_path="output/model_weights/fine_tuned_bert_masking.pth")
 
+    # Load the fine-tuned model with masking
     tokenizer, model, device = load_fine_tuned_model(model_path=mask_path)
 
+    # Evaluate the fine tuned model with masking
     class_report_masked, confus_matrix_masked = model_evaluation(model=model, test_df=test_df, tokenizer=tokenizer, device=device)
 
     # Plot the results with masking and save them in "output/plots/masking/" directory

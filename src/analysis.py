@@ -140,7 +140,7 @@ def model_evaluation(model, test_df, tokenizer, device):
 
     model.eval()
 
-    test_loader = create_data_loader(test_df, tokenizer, batch_size=16)
+    test_loader = create_data_loader(test_df, tokenizer, batch_size=16, for_training=False)
 
     all_predictions = []
     all_true_labels = []    

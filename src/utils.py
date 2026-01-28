@@ -8,6 +8,17 @@ from transformers import AutoTokenizer,  AutoModelForSequenceClassification
 import os
 from tqdm import tqdm
 import re
+import random
+import numpy as np
+
+
+def set_seed(seed=42):
+    """Set seed for reproducibility."""
+
+    random.seed(seed)          # Python random
+    np.random.seed(seed)       # Numpy
+    torch.manual_seed(seed)    # PyTorch Core
+    torch.cuda.manual_seed_all(seed) # PyTorch GPU
 
 def load_base_model(model_name="google-bert/bert-base-cased"):
     """
@@ -99,12 +110,12 @@ def mask_bullshit_words(text: str, bullshit_words: list, mask_token: str):
         text = re.sub(pattern, mask_token, text)
     return text
 
-def train_one_step(model, data_load, optimizer, device):
+def train_one_step(model, data_loader, optimizer, device):
     """
     Trains the model for one epoch.
 
     :param model: Model to train-
-    :param data_load: DataLoader for training data.
+    :param data_loader: DataLoader for training data.
     :param optimizer: The optimizer to use for training.
     :param device: Either 'cpu' or 'cuda'.
 
@@ -114,7 +125,7 @@ def train_one_step(model, data_load, optimizer, device):
     model.train()
     total_loss = 0
 
-    for batch in tqdm(data_load):
+    for batch in tqdm(data_loader):
         # Move batch to device if possible
         input_ids, attention_mask, labels = [b.to(device) for b in batch]
 
@@ -131,11 +142,11 @@ def train_one_step(model, data_load, optimizer, device):
 
         total_loss += loss.item()
 
-    avg_loss = total_loss / len(data_load)
+    avg_loss = total_loss / len(data_loader)
 
     return avg_loss
 
-def create_data_loader(df, tokenizer, batch_size=16, max_length=128, bullshit_words=None):
+def create_data_loader(df, tokenizer, batch_size=16, max_length=128, bullshit_words=None, for_training=True):
     """
     Creates a DataLoader from the given DataFrame.
 
@@ -144,6 +155,7 @@ def create_data_loader(df, tokenizer, batch_size=16, max_length=128, bullshit_wo
     :param batch_size: Batch size for the DataLoader.
     :param max_length: Maximum sequence length for tokenization.
     :param bullshit_words: List of words to mask in the text.
+    :param for_training: Whether the DataLoader is for training (shuffling enabled).
 
     :return: DataLoader
     """
@@ -176,7 +188,7 @@ def create_data_loader(df, tokenizer, batch_size=16, max_length=128, bullshit_wo
         labels
     )
 
-    return DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=for_training)
 
 def checkpoint_verification(checkpoint_json):
     """
