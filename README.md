@@ -52,7 +52,7 @@ In order to execute the workflow with default values just run `python .\main.py`
 
 If you want to understand the execution of `main.py` or tweak some parameters (for example, the batch size to be able to execute the workflow faster), the following is a brief description of the main components of the `main.py`. For each parameter or function the line is provided for easier finding:
 
-## Setup and Data Preparation
+## Setup and Data Preparation:
 - `MODEL_NAME` (line 24): The Hugging Face Model ID of the sentiment analysis as a string (Default: "google-bert/bert-base-cased").
 - `DATA_PATH` (line 25): The path to the dataset (Default: "data/imdb_dataset.csv").
 - `create_train_test_split()` (line 28): The `test_size` can be adjusted.
