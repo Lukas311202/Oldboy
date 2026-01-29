@@ -18,7 +18,7 @@ The project is organized into the following structure:
     Oldboy/
     ├── data/               # Raw IMDB dataset (CSV)
     ├── output/             # Generated artifacts
-    │   ├── logs/           #  JSON files with logits, stats, and attribution scores
+    │   ├── logs/           # JSON files with logits, stats, and attribution scores
     │   ├── model_weights/  # Model weights and training checkpoints created during execution    
     │   └── plots/          # Visualization plots
     ├── src/                # Source code
@@ -39,11 +39,11 @@ The project is organized into the following structure:
     ```
 3. Install all requirements with `pip install -r requirements.txt`. 
 
-# Important Notes
+# Important Notes:
 
 - The provided PyTorch version might not work for your specific GPU. In case you recieve error messages, try to download a different PyTorch version which is compatible with your GPU.
 
-- This workflow is heavily computationally expensive and may run for a long time. Our execution with an RTX 5060 Ti with 16GB VRAM took roughly over 45 hours. However you can reduce the number of steps for the attribution calculation, but note that this will likely lead to much less representative results.
+- This workflow is highly computationally expensive and may run for a long time. Our execution with an RTX 5060 Ti with 16GB VRAM took roughly over 45 hours. However you can reduce the number of steps for the attribution calculation, but note that this will likely lead to much less representative results.
 
 # How to use:
 **Important:** Execute everything from the source folder `./`.
@@ -64,7 +64,7 @@ If you want to understand the execution of `main.py` or tweak some parameters (f
 We calculate attributions only on a subset of the training set, since we used `n_steps=500` to get representative attributions.
 
 - `train_test_split()` (line 49): Reduces the training set. The `train_size` can be adjusted.
-- `run_attributions()` (line 57): `n_steps=30` is set as default, however if you want representative attribution values you have to use a much bigger value like 500 we used. `save_every` defines how often to make a checkpoint for the previous results. Also the `internal_batch_size` can be adjusted.
+- `run_attributions()` (line 57): `n_steps=500` is set as default, based on your GPU this can take a long time. You can set a lower value, but this comes with a less representative result. `save_every` defines how often to make a checkpoint for the previous results. Also the `internal_batch_size` can be adjusted.
 
 ## Analyze Attributions:
 Here, a list of the attribution values is generated that can be investigated by humans to identify tokens that are considered to not be biased.
