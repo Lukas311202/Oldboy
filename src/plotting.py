@@ -15,6 +15,9 @@ def plot_confusion_matrix(cm, subdir, normalize=False):
     :param subdir: Subdirectory within BASE_DIR to save the plot.
     :param normalize: Whether to normalize the confusion matrix
     """
+
+    cm = np.array(cm)
+
     if normalize:
         cm = cm.astype("float") / cm.sum(axis=1, keepdims=True)
 
@@ -22,7 +25,7 @@ def plot_confusion_matrix(cm, subdir, normalize=False):
     sns.heatmap(
         cm,
         annot=True,
-        fmt=".2f" if normalize else "d",
+        fmt=".2f" if normalize else ".1f",
         cmap="Blues",
         xticklabels=CLASS_NAMES,
         yticklabels=CLASS_NAMES

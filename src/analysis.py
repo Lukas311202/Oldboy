@@ -248,3 +248,65 @@ def calculate_relative_error(logits_json_path="output/logs/review_logits.json", 
     relative_error = raw_avg_delta / avg_logit_magnitude
 
     return relative_error
+
+def average_jsonl_results(input_file, output_file):
+    """
+    Averages classification reports and confusion matrices from multiple runs stored in a JSONL file.
+    And returns the averaged results as classification report and confusion matrix.
+
+    :param input_file: Path to the input JSONL file containing results from multiple runs.
+    :param output_file: Path to the output JSON file to save the averaged results.
+
+    :return: avg_report: Averaged classification report.
+    :return: avg_cm: Averaged confusion matrix.
+    """
+    # Load all results
+    results = []
+    with open(input_file, "r") as f:
+        for line in f:
+            results.append(json.loads(line))
+
+    n = len(results)
+
+    avg_report = {}
+    categories = ["negative", "positive", "macro avg", "weighted avg"]
+    metrics = ["precision", "recall", "f1-score"]
+    
+    # Initialize average report structure
+    for cat in categories:
+        avg_report[cat] = {m: 0.0 for m in metrics}
+    avg_report["accuracy"] = 0.0
+    avg_cm = np.zeros((2, 2))
+
+    # Aggregate results
+    for run in results:
+        rep = run["classification_report"]
+        for cat in categories:
+            for m in metrics:
+                avg_report[cat][m] += rep[cat][m]
+        avg_report["accuracy"] += rep["accuracy"]
+        avg_cm += np.array(run["confusion_matrix"])
+
+    # Compute averages
+    for cat in categories:
+        for m in metrics:
+            avg_report[cat][m] /= n
+        avg_report[cat]["support"] = results[0]["classification_report"][cat]["support"]
+    
+    # Finalize accuracy and confusion matrix
+    avg_report["accuracy"] /= n
+    avg_cm = (avg_cm / n).tolist() # Back to list for JSON serialization
+
+    # Save averaged results
+    final_data = {
+        "num_runs": n,
+        "average_classification_report": avg_report,
+        "average_confusion_matrix": avg_cm
+    }
+    
+    # Write to output file
+    with open(output_file, "w") as f:
+        json.dump(final_data, f, indent=4)
+        
+    return avg_report, avg_cm
+    
