@@ -18,6 +18,8 @@ if __name__ == "__main__":
         print(f"VRAM: {torch.cuda.get_device_properties(0).total_memory / 1024**2:.0f}MB")
     else:
         print("CUDA not found. Check your drivers.")
+
+    """Setup and Data Preparation"""
     
     MODEL_NAME = "google-bert/bert-base-cased"
     DATA_PATH = "data/imdb_dataset.csv"
@@ -26,10 +28,11 @@ if __name__ == "__main__":
     train_df, test_df = create_train_test_split(data=DATA_PATH, label_column="sentiment",
                                                 test_size=0.2, seed=42, stratify=True)
     
+    """Default Fine-tuning and Evaluation"""
+    
     # Fine-tune the model
-    fine_tuned_model_path = fine_tune_loop(train_df=train_df, base_model=MODEL_NAME, epochs=3, batch_size=16, learning_rate=2e-5)
-
-    # fine_tuned_model_path = "output/model_weights/fine_tuned_bert.pth"
+    fine_tuned_model_path = fine_tune_loop(train_df=train_df, base_model=MODEL_NAME, 
+                                           fine_tuned_model_path="output/model_weights/fine_tuned_bert.pth", epochs=3, batch_size=16, learning_rate=2e-5)
     
     # Load the fine-tuned model 
     tokenizer, fine_tuned_model, device = load_fine_tuned_model(model_name=MODEL_NAME, model_path=fine_tuned_model_path)
@@ -40,6 +43,8 @@ if __name__ == "__main__":
     # Plot the baseline results and save them in "output/plots/baseline/" directory
     multiple_plots(subdir="baseline", cm=confusion_matrix, classification_report=classification_report)
 
+    """Attribution Calculation"""
+
     # Reduce dataset for attribution calculations
     reduced_df, _ = train_test_split(
         train_df, 
@@ -49,7 +54,10 @@ if __name__ == "__main__":
     )
 
     # Calculate word attributions
-    attribution_values_json, final_avg_delta = run_attributions(n_steps=30, save_every=15, internal_batch_size=80, tokenizer=tokenizer, model=fine_tuned_model, train_df=reduced_df) 
+    attribution_values_json, final_avg_delta = run_attributions(n_steps=500, save_every=15, internal_batch_size=80, tokenizer=tokenizer, model=fine_tuned_model, train_df=reduced_df) 
+
+
+    """Analyze Attributions"""
 
     # Get most meaningful words
     most_meaningful_words, _ = get_most_meaningful_words(attribution_values_json, top_n=200, absolute=True, threshold=100)
@@ -63,6 +71,8 @@ if __name__ == "__main__":
         "app", "DVD", "short", "animated", "Yet", "Many", "Not", "scenery", "beginning", "Day", "bit",
         "adult", "describe", "true", "personally", "ready", "match"
     ]
+
+    """Fine-Tuning with Explanation-Based Loss"""
 
     # Fine-tune again with explanation-based loss
     ex_model_path = fine_tune_with_explanations(train_df, 
@@ -97,9 +107,13 @@ if __name__ == "__main__":
                      cm_b=ex_confusion_matrix, report_a=classification_report, 
                      report_b=ex_classification_report, label_a="Baseline", 
                      label_b="With Explanation")
+    
+    """Fine-Tuning with Masking-Out"""
 
     # Load model with masking out bullshit words fine-tuning
-    mask_path = fine_tune_loop(train_df=train_df, bullshit_words=bullshit_words, fine_tuned_model_path="output/model_weights/fine_tuned_bert_masking.pth")
+    mask_path = fine_tune_loop(train_df=train_df, bullshit_words=bullshit_words, 
+                               fine_tuned_model_path="output/model_weights/fine_tuned_bert_masking.pth", 
+                               epochs=3, batch_size=16, learning_rate=2e-5)
 
     # Load the fine-tuned model with masking
     tokenizer, model, device = load_fine_tuned_model(model_path=mask_path)

@@ -13,7 +13,7 @@ import json
 import os
 
 def fine_tune_loop(train_df, base_model="google-bert/bert-base-cased", fine_tuned_model_path="output/model_weights/fine_tuned_bert.pth", 
-                   epochs=3, batch_size=80, learning_rate=2e-5, bullshit_words=None):
+                   epochs=3, batch_size=16, learning_rate=2e-5, bullshit_words=None):
     """
     Fine-tunes the BERT model on the IMDB dataset. Saves the output model to the specified path.
     
