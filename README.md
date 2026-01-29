@@ -80,7 +80,7 @@ Similarly, here we used `n_steps=500` to get representative attributions.
 
 - `fine_tune_loop` (line 114): `epochs`, `batch_size` and `learning_rate` can be tweaked.
 
-## Contributions:
+# Contributions:
 - Dataset from [kaggle](https://www.kaggle.com/datasets/lakshmi25npathi/imdb-dataset-of-50k-movie-reviews)
 - Pretrained Model (google-bert/bert-base-cased) from [HuggingFace](https://huggingface.co/google-bert/bert-base-cased) via the Transformers library
 - For the word attributions calculation through Integrated Gradients, the [Captum](https://captum.ai) library was used
