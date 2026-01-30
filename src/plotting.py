@@ -197,6 +197,10 @@ def plot_confusion_matrix_difference(cm_a, cm_b, class_names, subdir):
     :param class_names: List of class labels
     :param subdir: Subdirectory within BASE_DIR to save the plot.
     """
+
+    cm_a = np.array(cm_a)
+    cm_b = np.array(cm_b)
+    
     cm_a = cm_a.astype("float") / cm_a.sum(axis=1, keepdims=True)
     cm_b = cm_b.astype("float") / cm_b.sum(axis=1, keepdims=True)
 
@@ -254,7 +258,6 @@ def comparison_plots(subdir, cm_a, cm_b, report_a, report_b, label_a, label_b, o
     """
     Executes multiple comparison plotting functions and saves plots in specified subdirectory.
     On default all plot types are generated.
-
 
     :param subdir: Subdirectory within BASE_DIR to save plots.
     :param cm_a: Confusion matrix of model A (np.ndarray).

@@ -24,9 +24,9 @@ if __name__ == "__main__":
     MODEL_NAME = "google-bert/bert-base-cased"
     DATA_PATH = "data/imdb_dataset.csv"
     original_seed = 42 # Seed for reproducibility
-    
     loop_seed = original_seed # Temporary seed to increment during loops
     repetitions = 5 # Number of repetitions for experiments
+    test_size = 0.2 # Test size for train-test split
 
     # Set paths for saving results
     default_results_path = "output/logs/fine_tuned_bert_results.jsonl"
@@ -39,7 +39,7 @@ if __name__ == "__main__":
 
     # Create train-test split once with original seed
     train_df, test_df = create_train_test_split(data=DATA_PATH, label_column="sentiment", 
-                                                test_size=0.2, seed=original_seed, stratify=True)
+                                                test_size=test_size, seed=original_seed, stratify=True)
 
     for _ in range(repetitions):
 
@@ -51,7 +51,7 @@ if __name__ == "__main__":
         
         # Train-test split
         current_train_df, current_test_df = create_train_test_split(data=DATA_PATH, label_column="sentiment",
-                                                test_size=0.2, seed=loop_seed, stratify=True)
+                                                test_size=test_size, seed=loop_seed, stratify=True)
 
         default_fine_tuning_results = fine_tune_and_evaluate_model(train_df=current_train_df, test_df=current_test_df, model_id=MODEL_NAME, seed=loop_seed,
                                                                     epochs=3, batch_size=16, learning_rate=2e-5,
@@ -61,10 +61,10 @@ if __name__ == "__main__":
         loop_seed += 1
 
     # Average results over repetitions 
-    avg_cr, avg_cm = average_jsonl_results(default_results_path, "output/logs/fine_tuned_bert_average_results.json")
+    avg_cr_baseline, avg_cm_baseline = average_jsonl_results(default_results_path, "output/logs/fine_tuned_bert_average_results.json")
         
     # Plot the baseline results and save them in "output/plots/baseline/" directory
-    multiple_plots(subdir="baseline", cm=avg_cm, classification_report=avg_cr)
+    multiple_plots(subdir="baseline", cm=avg_cm_baseline, classification_report=avg_cr_baseline)
 
     """Attribution Calculation"""
 
@@ -103,7 +103,7 @@ if __name__ == "__main__":
 
     loop_seed = original_seed
 
-    # Repeat experiments with different seeds
+    # # Repeat experiments with different seeds
     for _ in range(repetitions):
         # Set seed for reproducibility
         set_seed(loop_seed)
@@ -113,7 +113,7 @@ if __name__ == "__main__":
         
         # Train-test split
         current_train_df, current_test_df = create_train_test_split(data=DATA_PATH, label_column="sentiment",
-                                                test_size=0.2, seed=loop_seed, stratify=True)
+                                                test_size=test_size, seed=loop_seed, stratify=True)
 
         default_fine_tuning_results = fine_tune_and_evaluate_model(train_df=current_train_df, test_df=current_test_df, model_id=MODEL_NAME, seed=loop_seed,
                                                                     epochs=3, batch_size=16, learning_rate=2e-5,
@@ -123,10 +123,10 @@ if __name__ == "__main__":
         loop_seed += 1
 
     # Average results over repetitions 
-    avg_cr, avg_cm = average_jsonl_results(masked_results_path, "output/logs/fine_tuned_bert_masking_average_results.json")
+    avg_cr_masking, avg_cm_masking = average_jsonl_results(masked_results_path, "output/logs/fine_tuned_bert_masking_average_results.json")
         
     # Plot the masking results and save them in "output/plots/masking/" directory
-    multiple_plots(subdir="masking", cm=avg_cm, classification_report=avg_cr)
+    multiple_plots(subdir="masking", cm=avg_cm_masking, classification_report=avg_cr_masking)
 
     """Fine-Tuning with Explanation-Based Loss"""
 
@@ -137,16 +137,31 @@ if __name__ == "__main__":
                                                    lam=1.0, fine_tuned_model_path="output/model_weights/fine_tuned_bert_with_ex.pth", 
                                                    tokenizer=tokenizer, device=device, seed=original_seed, result_save_path=explanation_results_path)
     
-    avg_cr, avg_cm = average_jsonl_results(explanation_results_path, "output/logs/fine_tuned_bert_explanation_average_results.json")
+    avg_cr_explanation, avg_cm_explanation = average_jsonl_results(explanation_results_path, "output/logs/fine_tuned_bert_explanation_average_results.json")
 
     # Plot the results with explanations and save them in "output/plots/with_explanations/" directory
-    multiple_plots(subdir="with_explanations", cm=avg_cm, classification_report=avg_cr)
+    multiple_plots(subdir="with_explanations", cm=avg_cm_explanation, classification_report=avg_cr_explanation)
  
+    """Final Comparison Plots"""
+
     # Comparison plots between baseline and explanation-based model
-    # comparison_plots(subdir="comparison_baseline_explanation", cm_a=confusion_matrix, 
-    #                  cm_b=ex_confusion_matrix, report_a=classification_report, 
-    #                  report_b=ex_classification_report, label_a="Baseline", 
-    #                  label_b="With Explanation")
+    comparison_plots(subdir="comparison_baseline_explanation", cm_a=avg_cm_baseline, 
+                     cm_b=avg_cm_explanation, report_a=avg_cr_baseline, 
+                     report_b=avg_cr_explanation, label_a="Baseline", 
+                     label_b="With Explanation")
+    
+    # Comparison plots between baseline and masking model
+    comparison_plots(subdir="comparison_baseline_masking", cm_a=avg_cm_baseline, 
+                     cm_b=avg_cm_masking, report_a=avg_cr_baseline, 
+                     report_b=avg_cr_masking, label_a="Baseline", 
+                     label_b="With Masking")
+    
+    # Comparison plots between masking and explanation model
+    comparison_plots(subdir="comparison_masking_explanation", cm_a=avg_cm_masking, 
+                     cm_b=avg_cm_explanation, report_a=avg_cr_masking, 
+                     report_b=avg_cr_explanation, label_a="With Masking", 
+                     label_b="With Explanation")
+    
 
 
 
