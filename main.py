@@ -133,7 +133,7 @@ if __name__ == "__main__":
     set_seed(original_seed)
 
     fine_tune_and_evaluate_model_with_explanations(train_df=train_df, test_df=test_df, model_name=MODEL_NAME, n_steps=500, batch_size=80, 
-                                                   epochs=3, bullshit_words=bullshit_words, checkpoint_every_n_step=5, 
+                                                   epochs=3, learning_rate=2e-5, bullshit_words=bullshit_words, checkpoint_every_n_step=5, 
                                                    lam=1.0, fine_tuned_model_path="output/model_weights/fine_tuned_bert_with_ex.pth", 
                                                    tokenizer=tokenizer, device=device, seed=original_seed, result_save_path=explanation_results_path)
     

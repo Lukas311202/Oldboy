@@ -46,7 +46,7 @@ def fine_tune_and_evaluate_model(train_df, test_df, model_id, seed, epochs,
         f.write(json.dumps(results_to_save) + "\n")
 
 def fine_tune_and_evaluate_model_with_explanations(train_df, test_df, model_name, n_steps, batch_size, 
-                                                   epochs, bullshit_words, checkpoint_every_n_step, 
+                                                   epochs, learning_rate, bullshit_words, checkpoint_every_n_step, 
                                                    lam, fine_tuned_model_path, tokenizer, device, seed, result_save_path):
     """
     Fine-tunes a model with explanation-based loss and evaluates it on the test dataset.
@@ -73,6 +73,7 @@ def fine_tune_and_evaluate_model_with_explanations(train_df, test_df, model_name
                                  n_steps=n_steps, 
                                  batch_size=batch_size, 
                                  epochs=epochs,
+                                 learning_rate=learning_rate,
                                  bullshit_words=bullshit_words,
                                  checkpoint_every_n_step=checkpoint_every_n_step,
                                  lam=lam,

@@ -81,7 +81,7 @@ Here, a list of the attribution values is generated that can be investigated by 
 ## Fine-Tuning with Explanation-Based Loss:
 Similarly, here we used `n_steps=500` to get representative attributions.
 
-- `fine_tune_and_evaluate_model_with_explanations()` (line 135): `n_steps`, `batch_size`, `epochs`, and the lambda value `lam` to scale the explanation-based loss can be tweaked.
+- `fine_tune_and_evaluate_model_with_explanations()` (line 135): `n_steps`, `batch_size`, `epochs`, `learning_rate`, and the lambda value `lam` to scale the explanation-based loss, can be tweaked.
 
 
 # Contributions:
