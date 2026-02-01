@@ -7,6 +7,7 @@ from src.utils import create_train_test_split, load_fine_tuned_model, load_fine_
 from src.plotting import (
     comparison_plots,
     multiple_plots,
+    plot_combined_matrices
 )
 from sklearn.model_selection import train_test_split
 
@@ -161,6 +162,8 @@ if __name__ == "__main__":
                      cm_b=avg_cm_explanation, report_a=avg_cr_masking, 
                      report_b=avg_cr_explanation, label_a="With Masking", 
                      label_b="With Explanation")
+    
+    plot_combined_matrices([avg_cm_explanation, avg_cm_masking, avg_cm_baseline], ["With Explanation", "With Masking", "Baseline"], subdir="comparison", filename="combined_matrices.svg")
     
 
 

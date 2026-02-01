@@ -1,3 +1,4 @@
+from matplotlib import gridspec
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
@@ -284,3 +285,54 @@ def comparison_plots(subdir, cm_a, cm_b, report_a, report_b, label_a, label_b, o
         plot_confusion_matrix_difference(cm_a, cm_b, CLASS_NAMES, subdir)
 
     print(f"All comparison plots saved into '{path}' directory.")
+
+
+def plot_combined_matrices(cm_list, titles, subdir, filename="combined_matrices.svg"):
+    """
+    Plots multiple confusion matrices side by side for comparison. 
+    Ordered as 2x2 grid with last plot spanning the bottom row.
+
+    :param cm_list: List of confusion matrices to plot.
+    :param titles: List of titles corresponding to each confusion matrix.
+    :param subdir: Subdirectory within BASE_DIR to save the plot.
+    :param filename: Filename to save the combined plot.
+    """
+    fig = plt.figure(figsize=(18, 14)) 
+    
+    gs = gridspec.GridSpec(2, 2, figure=fig, hspace=0.25, wspace=0.3)
+    
+    ax0 = fig.add_subplot(gs[0, 0]) 
+    ax1 = fig.add_subplot(gs[0, 1]) 
+    gs_bottom = gridspec.GridSpecFromSubplotSpec(1, 4, subplot_spec=gs[1, :])
+    ax2 = fig.add_subplot(gs_bottom[0, 1:3]) 
+
+    axes = [ax0, ax1, ax2]
+
+    for i, (cm, title) in enumerate(zip(cm_list, titles)):
+        ax = axes[i]
+        cm = np.array(cm)
+        cm_norm = cm.astype('float') / cm.sum(axis=1, keepdims=True)
+        
+        labels = (np.array(["{0:.0f}\n({1:.0%})".format(round(value), percentage)
+                  for value, percentage in zip(cm.flatten(), cm_norm.flatten())]
+                  )).reshape(cm.shape)
+        
+        sns.heatmap(cm, annot=labels, fmt="", cmap="Blues", ax=ax,
+                    xticklabels=CLASS_NAMES, yticklabels=CLASS_NAMES, 
+                    cbar=True, square=True,
+                    annot_kws={"size": 13, "weight": "bold"}) 
+
+        ax.set_title(title, fontsize=28, fontweight='bold', pad=15)
+        
+        ax.set_xlabel("Predicted Label", fontsize=22, labelpad=10)
+        ax.set_ylabel("True Label", fontsize=22, labelpad=10)
+        
+        ax.tick_params(axis='both', which='major', labelsize=18)
+
+    save_path = os.path.join(BASE_DIR, subdir)
+    os.makedirs(save_path, exist_ok=True)
+    
+    full_path = os.path.join(save_path, filename)
+    
+    plt.savefig(full_path, format='svg', bbox_inches='tight', dpi=300)
+    plt.close()
