@@ -163,6 +163,7 @@ if __name__ == "__main__":
                      report_b=avg_cr_explanation, label_a="With Masking", 
                      label_b="With Explanation")
     
+    # Combined confusion matrices plot
     plot_combined_matrices([avg_cm_explanation, avg_cm_masking, avg_cm_baseline], ["With Explanation", "With Masking", "Baseline"], subdir="comparison", filename="combined_matrices.svg")
     
 
