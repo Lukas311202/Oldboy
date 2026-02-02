@@ -15,17 +15,17 @@
         },
         "macro avg": {
             "precision": 0.8912078012217046,
-            "recall": 0.8911000000000001,
-            "f1-score": 0.8910924973621434,
+            "recall": 0.8911,
+            "f1-score": 0.8910924973621432,
             "support": 10000.0
         },
         "weighted avg": {
             "precision": 0.8912078012217047,
-            "recall": 0.8911000000000001,
+            "recall": 0.8911,
             "f1-score": 0.8910924973621434,
             "support": 10000.0
         },
-        "accuracy": 0.8911000000000001
+        "accuracy": 0.8911
     },
     "average_confusion_matrix": [
         [

@@ -25,15 +25,17 @@ if __name__ == "__main__":
     MODEL_NAME = "google-bert/bert-base-cased"
     DATA_PATH = "data/imdb_dataset.csv"
     original_seed = 42 # Seed for reproducibility
-    loop_seed = original_seed # Temporary seed to increment during loops
     repetitions = 5 # Number of repetitions for experiments
     test_size = 0.2 # Test size for train-test split
+
+    loop_seed = original_seed # Temporary seed to increment during loops
 
     # Set paths for saving results
     default_results_path = "output/logs/fine_tuned_bert_results.jsonl"
     masked_results_path = "output/logs/fine_tuned_bert_masking_results.jsonl"
     explanation_results_path = "output/logs/fine_tuned_bert_explanation_results.jsonl"
 
+    # Set path for saving fine-tuned model
     model_save_path = f"output/model_weights/fine_tuned_bert_seed_{original_seed}.pth"
 
     """Default Fine-tuning and Evaluation"""
@@ -54,6 +56,7 @@ if __name__ == "__main__":
         current_train_df, current_test_df = create_train_test_split(data=DATA_PATH, label_column="sentiment",
                                                 test_size=test_size, seed=loop_seed, stratify=True)
 
+        # Fine-tune and evaluate model
         default_fine_tuning_results = fine_tune_and_evaluate_model(train_df=current_train_df, test_df=current_test_df, model_id=MODEL_NAME, seed=loop_seed,
                                                                     epochs=3, batch_size=16, learning_rate=2e-5,
                                                                     model_save_path=current_model_save_path,
@@ -79,6 +82,7 @@ if __name__ == "__main__":
         random_state=original_seed
     )
 
+    # Load fine-tuned model
     tokenizer, model, device = load_fine_tuned_model(model_name=MODEL_NAME, model_path=model_save_path)
 
     # Calculate word attributions
@@ -104,7 +108,7 @@ if __name__ == "__main__":
 
     loop_seed = original_seed
 
-    # # Repeat experiments with different seeds
+    # Repeat experiments with different seeds
     for _ in range(repetitions):
         # Set seed for reproducibility
         set_seed(loop_seed)
@@ -116,6 +120,7 @@ if __name__ == "__main__":
         current_train_df, current_test_df = create_train_test_split(data=DATA_PATH, label_column="sentiment",
                                                 test_size=test_size, seed=loop_seed, stratify=True)
 
+        # Fine-tune and evaluate model with masking
         default_fine_tuning_results = fine_tune_and_evaluate_model(train_df=current_train_df, test_df=current_test_df, model_id=MODEL_NAME, seed=loop_seed,
                                                                     epochs=3, batch_size=16, learning_rate=2e-5,
                                                                     model_save_path=current_model_save_path,
@@ -133,11 +138,13 @@ if __name__ == "__main__":
 
     set_seed(original_seed)
 
+    # Fine-tune and evaluate model with explanation-based loss
     fine_tune_and_evaluate_model_with_explanations(train_df=train_df, test_df=test_df, model_name=MODEL_NAME, n_steps=500, batch_size=80, 
                                                    epochs=3, learning_rate=2e-5, bullshit_words=bullshit_words, checkpoint_every_n_step=5, 
                                                    lam=1.0, fine_tuned_model_path="output/model_weights/fine_tuned_bert_with_ex.pth", 
                                                    tokenizer=tokenizer, device=device, seed=original_seed, result_save_path=explanation_results_path)
     
+    # Get results into classification report and confusion matrix
     avg_cr_explanation, avg_cm_explanation = average_jsonl_results(explanation_results_path, "output/logs/fine_tuned_bert_explanation_average_results.json")
 
     # Plot the results with explanations and save them in "output/plots/with_explanations/" directory
@@ -164,7 +171,9 @@ if __name__ == "__main__":
                      label_b="With Explanation")
     
     # Combined confusion matrices plot
-    plot_combined_matrices([avg_cm_explanation, avg_cm_masking, avg_cm_baseline], ["With Explanation", "With Masking", "Baseline"], subdir="comparison", filename="combined_matrices.svg")
+    plot_combined_matrices(cm_list=[avg_cm_explanation, avg_cm_masking, avg_cm_baseline], 
+                           titles=["With Explanation", "With Masking", "Baseline"], 
+                           subdir="comparison", filename="combined_matrices.svg")
     
 
 

@@ -49,39 +49,44 @@ The project is organized into the following structure:
 # How to use:
 **Important:** Execute everything from the source folder `./`.
 
-In order to execute the workflow with default values just run `python .\main.py`. All results are plotted and saved into `./output/plots/XXX` where 'XXX' is either `baseline`, `masking`, `with_explanations`, `comparison_baseline_explanation`, `comparison_baseline_masking` or `comparison_masking_explanation`. For raw values look into `output/logs/` where the raw results in are saved in JSON format .
+In order to execute the workflow with default values just run:
+```
+python .\main.py
+``` 
+
+All results are plotted and saved into `./output/plots/XXX` where 'XXX' is either `baseline`, `masking`, `with_explanations`, `comparison_baseline_explanation`, `comparison_baseline_masking` or `comparison_masking_explanation`. For raw values look into `output/logs/` where the raw results in are saved in JSON format .
 
 If you want to understand the execution of `main.py` or tweak some parameters (for example, the batch size to be able to execute the workflow faster), the following is a brief description of the main components of the `main.py`. For each parameter or function the line is provided for easier finding:
 
 ## Setup and Data Preparation:
-- `MODEL_NAME` (line 24): The Hugging Face Model ID of the sentiment analysis as a string (Default: "google-bert/bert-base-cased").
-- `DATA_PATH` (line 25): The path to the dataset (Default: "data/imdb_dataset.csv").
-- `original_seed` (line 26): Customize the seed.
+- `MODEL_NAME` (line 25): The Hugging Face Model ID of the sentiment analysis as a string (Default: "google-bert/bert-base-cased").
+- `DATA_PATH` (line 26): The path to the dataset (Default: "data/imdb_dataset.csv").
+- `original_seed` (line 27): Customize the seed.
 - `repetitions` (line 28): Define how often the experiment should be executed (results are averaged).
 - `test_size` (line 29): Adjust the size of the test set. 
 
 ## Default Fine-Tuning and Evaluation:
-- `fine_tune_and_evaluate_model()` (line 56): The `batch_size`, `epochs`, and `learning_rate` can be adjusted. 
+- `fine_tune_and_evaluate_model()` (line 60): The `batch_size`, `epochs`, and `learning_rate` can be adjusted. 
 
 ## Attribution Calculation:
 We calculate attributions only on a subset of the training set, since we used `n_steps=500` to get representative attributions.
 
-- `train_test_split()` (line 74): Reduces the training set. The `train_size` can be adjusted.
-- `run_attributions()` (line 83): `n_steps=500` is set as default, based on your GPU this can take a long time. You can set a lower value, but this comes with a less representative result. `save_every` defines how often to make a checkpoint for the previous results. Also the `internal_batch_size` can be adjusted.
+- `train_test_split()` (line 78): Reduces the training set. The `train_size` can be adjusted.
+- `run_attributions()` (line 89): `n_steps=500` is set as default, based on your GPU this can take a long time. You can set a lower value, but this comes with a less representative result. `save_every` defines how often to make a checkpoint for the previous results. Also the `internal_batch_size` can be adjusted.
 
 ## Analyze Attributions:
 Here, a list of the attribution values is generated that can be investigated by humans to identify tokens that are considered to not be biased.
- - `get_most_meaningful_words()` (line 90): Filter the `top_n` words with the highest abolute global attribution value and set a `threshold` on how often the word should at least occur.
- - `bullshit_words` (line 95): Fill the list with the words you consider to be biased.
+ - `get_most_meaningful_words()` (line 95): Filter the `top_n` words with the highest abolute global attribution value and set a `threshold` on how often the word should at least occur.
+ - `bullshit_words` (line 100): Fill the list with the words you consider to be biased.
 
  ## Fine-Tuning with Masking-Out:
 
-- `fine_tune_and_evaluate_model()` (line 118): `epochs`, `batch_size,` and `learning_rate` can be tweaked.
+- `fine_tune_and_evaluate_model()` (line 124): `epochs`, `batch_size,` and `learning_rate` can be tweaked.
 
 ## Fine-Tuning with Explanation-Based Loss:
 Similarly, here we used `n_steps=500` to get representative attributions.
 
-- `fine_tune_and_evaluate_model_with_explanations()` (line 135): `n_steps`, `batch_size`, `epochs`, `learning_rate`, and the lambda value `lam` to scale the explanation-based loss, can be tweaked.
+- `fine_tune_and_evaluate_model_with_explanations()` (line 142): `n_steps`, `batch_size`, `epochs`, `learning_rate`, and the lambda value `lam` to scale the explanation-based loss, can be tweaked.
 
 
 # Contributions:
